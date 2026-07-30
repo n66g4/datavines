@@ -71,7 +71,7 @@
 
 环境要求与上游一致：**JDK 8**、**Maven 3.6+**。
 
-离线/内网目标机若无法拉依赖，请在有网机器构建后上传产物。
+离线/内网目标机若无法拉依赖，请在有网机器构建后上传产物，或使用下方 **GitHub Actions aarch64 发版**。
 
 ```sh
 # 完整发行包（含 UI）
@@ -95,6 +95,34 @@ npm run build:prod
 - `datavines-connector-file-1.0.0-SNAPSHOT.jar`
 - `datavines-server-1.0.0-SNAPSHOT.jar`
 - `datavines-core-1.0.0-SNAPSHOT.jar`
+
+### 3.1 GitHub Actions：aarch64 发行包（推荐）
+
+仓库工作流：**Release aarch64 (Kylin)**（`.github/workflows/release-aarch64-kylin.yml`）
+
+| 触发 | 结果 |
+|------|------|
+| Actions 页 **Run workflow**（选本分支） | 上传 Artifact：`datavines-bin-linux-aarch64`（约保留 14 天） |
+| 推送 tag `v*`（如 `v1.0.0-kylin`） | 同上 Artifact + **GitHub Release** 附件 |
+
+构建环境：`ubuntu-24.04-arm` + **JDK 8**，命令 `./mvnw clean package -Prelease -DskipTests`。  
+产物名示例：`datavines-1.0.0-SNAPSHOT-bin-linux-aarch64.tar.gz`。
+
+手动触发示例：
+
+1. 打开 https://github.com/n66g4/datavines/actions/workflows/release-aarch64-kylin.yml  
+2. 选分支 `aach64-kylin10-kingbase` → **Run workflow**  
+3. 结束后在 run 页面 **Artifacts** 下载 tar.gz  
+
+打 tag 发正式包：
+
+```sh
+git checkout aach64-kylin10-kingbase
+git tag v1.0.0-kylin
+git push origin v1.0.0-kylin   # 远程为 n66g4/datavines 时用对应 remote 名
+```
+
+**说明：** 发行包 **不含** 金仓私有 JDBC；部署时自行将 `kingbase8-*.jar` 放入 `libs/`。
 
 ---
 
@@ -135,6 +163,7 @@ cd /opt/datavines
 - [ ] 错误数据存储类型列表含 **file（本地 CSV 文本文件）**，配置表单可填目录与分隔符
 - [ ] 创建不支持的错误存储类型被拒绝
 - [ ] 作业可调度执行，结果与错误 CSV 可查看
+- [ ] （可选）从 GitHub Actions Artifact / Release 下载 aarch64 包并在麒麟上解压启动
 - [ ] （可选）批量导入模板下载与导入成功
 
 ---

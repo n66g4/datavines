@@ -1,0 +1,87 @@
+#
+# Build Datavines release tarball on Linux aarch64 (for Kylin V10).
+# - workflow_dispatch → upload Artifact
+# - push tag v* → create GitHub Release + Artifact
+#
+
+name: Release aarch64 (Kylin)
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release-aarch64-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build linux-aarch64 bin
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 120
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 8
+        uses: actions/setup-java@v4
+        with:
+          java-version: '8'
+          distribution: 'temurin'
+          cache: maven
+
+      - name: Build release package
+        run: |
+          chmod +x ./mvnw
+          ./mvnw -B clean package -Prelease -DskipTests -Dspotless.skip=true
+
+      - name: Stage artifact
+        id: stage
+        run: |
+          set -euo pipefail
+          SRC=$(ls -1 datavines-dist/target/datavines-*-bin.tar.gz | head -n 1)
+          test -n "$SRC"
+          BASE=$(basename "$SRC" .tar.gz)
+          OUT="${BASE}-linux-aarch64.tar.gz"
+          cp -f "$SRC" "$OUT"
+          ls -lh "$OUT"
+          echo "file=$OUT" >> "$GITHUB_OUTPUT"
+          # version for release name
+          VER="${GITHUB_REF_NAME}"
+          if [[ "$GITHUB_REF_TYPE" != "tag" ]]; then
+            VER=$(echo "$BASE" | sed -E 's/^datavines-(.+)-bin$/\1/')
+          fi
+          echo "version=$VER" >> "$GITHUB_OUTPUT"
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: datavines-bin-linux-aarch64
+          path: ${{ steps.stage.outputs.file }}
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ steps.stage.outputs.file }}
+          name: Datavines ${{ steps.stage.outputs.version }} (linux-aarch64 / Kylin)
+          body: |
+            面向 **银河麒麟 V10 aarch64** 的发行包（在 GitHub `ubuntu-24.04-arm` + JDK 8 上构建）。
+
+            ## 使用
+            1. 解压到目标机（如 `/opt/datavines`）
+            2. 配置 MariaDB 元库（`mysql` profile）
+            3. 将金仓官方 JDBC（如 `kingbase8-*.jar`）放入 `libs/`（本包不捆绑私有驱动）
+            4. `./bin/datavines-daemon.sh start mysql`
+
+            说明见仓库 [`README-aach64-kylin10-kingbase.md`](../blob/${{ github.ref_name }}/README-aach64-kylin10-kingbase.md)。
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
