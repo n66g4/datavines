@@ -21,6 +21,8 @@
 [![EN doc](https://img.shields.io/badge/document-English-blue.svg)](README.md)
 [![CN doc](https://img.shields.io/badge/文档-中文版-blue.svg)](README.zh-CN.md)
 
+> **麒麟 V10 aarch64 + 人大金仓适配**：见 [README-aach64-kylin10-kingbase.md](README-aach64-kylin10-kingbase.md)（分支 `aach64-kylin10-kingbase`）。
+
 ---
 
 Datavines 是一站式开源数据可观测性平台，提供元数据管理、数据概览报告、数据质量管理，数据分布查询、数据趋势洞察等核心能力，致力于帮助用户全面地了解和掌管数据，让您做到心中有数。

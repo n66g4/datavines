@@ -19,9 +19,11 @@ package io.datavines.server.api.controller;
 import io.datavines.core.aop.RefreshToken;
 import io.datavines.core.constant.DataVinesConstants;
 import io.datavines.core.exception.DataVinesServerException;
+import io.datavines.server.api.dto.bo.job.JobBatchImportResult;
 import io.datavines.server.api.dto.bo.job.JobCreate;
 import io.datavines.server.api.dto.bo.job.JobUpdate;
 import io.datavines.server.repository.entity.Job;
+import io.datavines.server.repository.service.JobBatchImportService;
 import io.datavines.server.repository.service.JobService;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
@@ -29,6 +31,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import javax.validation.Valid;
 
@@ -41,6 +44,9 @@ public class JobController {
 
     @Autowired
     private JobService jobService;
+
+    @Autowired
+    private JobBatchImportService jobBatchImportService;
 
     @ApiOperation(value = "create job", response = long.class)
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
@@ -106,5 +112,18 @@ public class JobController {
     @GetMapping(value = "/config/{id}")
     public Object getJobConfig(@PathVariable("id") Long jobId) throws DataVinesServerException {
         return jobService.getJobConfig(jobId);
+    }
+
+    @ApiOperation(value = "batch import jobs", response = JobBatchImportResult.class)
+    @PostMapping(value = "/batch-import", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public Object batchImport(@RequestParam("file") MultipartFile file,
+                              @RequestParam("dataSourceId") Long dataSourceId,
+                              @RequestParam(value = "errorDataStorageId", required = false) Long errorDataStorageId,
+                              @RequestParam(value = "splitMode", required = false, defaultValue = "PER_RULE") String splitMode,
+                              @RequestParam(value = "duplicateStrategy", required = false, defaultValue = "SKIP") String duplicateStrategy,
+                              @RequestParam(value = "engineType", required = false, defaultValue = "local") String engineType,
+                              @RequestParam(value = "runningNow", required = false, defaultValue = "0") Integer runningNow) {
+        return jobBatchImportService.importJobs(file, dataSourceId, errorDataStorageId,
+                splitMode, duplicateStrategy, engineType, runningNow);
     }
 }

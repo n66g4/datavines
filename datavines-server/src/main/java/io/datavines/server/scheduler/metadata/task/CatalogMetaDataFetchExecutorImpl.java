@@ -720,10 +720,13 @@ public class CatalogMetaDataFetchExecutorImpl implements CatalogMetaDataFetchExe
         String normalizedDataSourceType = StringUtils.isEmpty(dataSourceType) ? "" : dataSourceType.toLowerCase();
         String normalizedDatabaseName = databaseName.toLowerCase();
 
-        if ("postgresql".equals(normalizedDataSourceType) || "postgres".equals(normalizedDataSourceType)) {
+        if ("postgresql".equals(normalizedDataSourceType) || "postgres".equals(normalizedDataSourceType)
+                || "kingbase".equals(normalizedDataSourceType)) {
             return "postgres".equals(normalizedDatabaseName)
                     || "template0".equals(normalizedDatabaseName)
-                    || "template1".equals(normalizedDatabaseName);
+                    || "template1".equals(normalizedDatabaseName)
+                    || "kingbase".equals(normalizedDatabaseName)
+                    || "security".equals(normalizedDatabaseName);
         }
 
         return "sys".equals(normalizedDatabaseName)

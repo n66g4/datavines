@@ -14,13 +14,35 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.datavines.common.param;
+package io.datavines.server.api.dto.bo.job;
 
 import lombok.Data;
-import lombok.EqualsAndHashCode;
+
+import java.util.ArrayList;
+import java.util.List;
 
 @Data
-@EqualsAndHashCode(callSuper = true)
-public class TestConnectionRequestParam extends ConnectorRequestParam {
-    private Long id;
+public class JobBatchImportResult {
+
+    private List<String> created = new ArrayList<>();
+
+    private List<String> updated = new ArrayList<>();
+
+    private List<String> skipped = new ArrayList<>();
+
+    private List<FailedItem> failed = new ArrayList<>();
+
+    @Data
+    public static class FailedItem {
+        private String name;
+        private String reason;
+
+        public FailedItem() {
+        }
+
+        public FailedItem(String name, String reason) {
+            this.name = name;
+            this.reason = reason;
+        }
+    }
 }

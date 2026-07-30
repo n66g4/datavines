@@ -60,6 +60,8 @@ import static io.datavines.common.log.SensitiveDataConverter.PWD_PATTERN_1;
 @Service("dataSourceService")
 public class DataSourceServiceImpl extends ServiceImpl<DataSourceMapper, DataSource>  implements DataSourceService {
 
+    private static final String PASSWORD_PLACEHOLDER = "******";
+
     @Autowired
     private JobService jobService;
 
@@ -74,6 +76,15 @@ public class DataSourceServiceImpl extends ServiceImpl<DataSourceMapper, DataSou
 
     @Override
     public ConnectorResponse testConnect(TestConnectionRequestParam param) {
+        if (param != null && StringUtils.isNotEmpty(param.getDataSourceParam())) {
+            Map<String, String> paramMap = JSONUtils.toMap(param.getDataSourceParam());
+            if (paramMap != null && isPasswordPlaceholder(paramMap.get("password")) && param.getId() != null) {
+                DataSource ds = baseMapper.selectById(param.getId());
+                if (ds != null && restorePasswordIfNeeded(ds.getParam(), paramMap)) {
+                    param.setDataSourceParam(JSONUtils.toJsonString(paramMap));
+                }
+            }
+        }
         ConnectorFactory connectorFactory = PluginDiscovery.getMultiKeyPluginDiscovery(ConnectorFactory.class, ConnectorFactory::getPluginNames).getOrCreatePlugin(param.getType());
         return connectorFactory.getConnector().testConnect(param);
     }
@@ -153,6 +164,7 @@ public class DataSourceServiceImpl extends ServiceImpl<DataSourceMapper, DataSou
             throw new DataVinesException("can not find the datasource");
         }
 
+        String oldEncryptedParam = dataSource.getParam();
         BeanUtils.copyProperties(dataSourceUpdate, dataSource);
         String param = dataSourceUpdate.getParam();
 
@@ -162,6 +174,10 @@ public class DataSourceServiceImpl extends ServiceImpl<DataSourceMapper, DataSou
 
         if (MapUtils.isEmpty(paramMap)) {
             return -1;
+        }
+
+        if (restorePasswordIfNeeded(oldEncryptedParam, paramMap)) {
+            param = JSONUtils.toJsonString(paramMap);
         }
 
         String type = dataSourceUpdate.getType();
@@ -251,7 +267,7 @@ public class DataSourceServiceImpl extends ServiceImpl<DataSourceMapper, DataSou
                 throw new DataVinesException("encrypt datasource param error : {}", e);
             }
 
-            dataSourceVO.setParam(PasswordFilterUtils.convertPasswordToNULL(PWD_PATTERN_1, param));
+            dataSourceVO.setParam(PasswordFilterUtils.convertPassword(PWD_PATTERN_1, param));
         });
         return dataSources;
     }
@@ -393,5 +409,34 @@ public class DataSourceServiceImpl extends ServiceImpl<DataSourceMapper, DataSou
     @Override
     public String getConfigJson(String type) {
         return PluginDiscovery.getMultiKeyPluginDiscovery(ConnectorFactory.class, ConnectorFactory::getPluginNames).getOrCreatePlugin(type).getConfigBuilder().build(!LanguageUtils.isZhContext());
+    }
+
+    /** If password is placeholder/empty, restore from decrypted oldEncryptedParam into paramMap. Returns true if restored. */
+    private boolean restorePasswordIfNeeded(String oldEncryptedParam, Map<String, String> paramMap) {
+        if (paramMap == null || !isPasswordPlaceholder(paramMap.get("password"))) {
+            return false;
+        }
+        if (StringUtils.isEmpty(oldEncryptedParam)) {
+            return false;
+        }
+        Map<String, String> oldMap = JSONUtils.toMap(decryptParam(oldEncryptedParam));
+        if (oldMap != null && StringUtils.isNotEmpty(oldMap.get("password"))) {
+            paramMap.put("password", oldMap.get("password"));
+            return true;
+        }
+        return false;
+    }
+
+    private boolean isPasswordPlaceholder(String password) {
+        return StringUtils.isEmpty(password) || PASSWORD_PLACEHOLDER.equals(password);
+    }
+
+    private String decryptParam(String encrypted) {
+        try {
+            return CryptionUtils.decryptByAES(encrypted,
+                    CommonPropertyUtils.getString(CommonPropertyUtils.AES_KEY, CommonPropertyUtils.AES_KEY_DEFAULT));
+        } catch (Exception e) {
+            throw new DataVinesException("decrypt datasource param error : {}", e);
+        }
     }
 }

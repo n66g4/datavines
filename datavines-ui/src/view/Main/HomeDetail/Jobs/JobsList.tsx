@@ -9,6 +9,7 @@ import {useWatch} from '@/common';
 import {$http} from '@/http';
 import {defaultRender} from '@/utils/helper';
 import {useAddEditJobsModal} from './useAddEditJobsModal';
+import {useBatchImportJobsModal} from './useBatchImportJobsModal';
 import {useSelectSLAsModal} from './useSelectSLAsModal';
 import { useJobExecutionConfigPreview } from '@/view/Main/HomeDetail/Jobs/useJobExecutionConfigPreview';
 import store from '@/store';
@@ -34,6 +35,12 @@ const Jobs = ({ datasourceId }: TJobs) => {
     const { Render: RenderJobsModal, show: showJobsModal } = useAddEditJobsModal({
         title: intl.formatMessage({ id: addType === 'quality' ? 'jobs_tabs_title' : 'jobs_tabs_comparison_title' }),
         afterClose() {
+            getData();
+        },
+    });
+
+    const { Render: RenderBatchImportModal, show: showBatchImportModal } = useBatchImportJobsModal({
+        afterImport() {
             getData();
         },
     });
@@ -399,6 +406,17 @@ const Jobs = ({ datasourceId }: TJobs) => {
                         >
                             {intl.formatMessage({ id: 'common_search' })}
                         </Button>
+                        <Button
+                            type="default"
+                            style={{ marginRight: 15 }}
+                            onClick={() => {
+                                showBatchImportModal({
+                                    datasourceId: datasourceId || (match.params as any).id,
+                                });
+                            }}
+                        >
+                            {intl.formatMessage({ id: 'jobs_batch_import' })}
+                        </Button>
                         <Dropdown overlay={menu}>
                             <Button
                                 type="primary"
@@ -427,6 +445,7 @@ const Jobs = ({ datasourceId }: TJobs) => {
                 }}
             />
             <RenderJobsModal />
+            <RenderBatchImportModal />
             <RenderSLAsModal />
             <RenderJobPreviewModal />
         </div>

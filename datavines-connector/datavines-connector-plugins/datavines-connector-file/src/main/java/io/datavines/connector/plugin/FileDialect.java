@@ -70,4 +70,9 @@ public class FileDialect implements Dialect {
     public ResultList getPageFromResultSet(Statement sourceConnectionStatement, ResultSet rs, String sourceTable, int start, int end) throws SQLException {
         return null;
     }
+
+    @Override
+    public boolean supportToBeErrorDataStorage() {
+        return true;
+    }
 }

@@ -14,13 +14,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.datavines.common.param;
+package io.datavines.connector.plugin;
 
-import lombok.Data;
-import lombok.EqualsAndHashCode;
+import io.datavines.common.param.form.Validate;
+import io.datavines.common.param.form.type.InputParam;
 
-@Data
-@EqualsAndHashCode(callSuper = true)
-public class TestConnectionRequestParam extends ConnectorRequestParam {
-    private Long id;
+public class KingbaseConfigBuilder extends JdbcConfigBuilder {
+
+    @Override
+    protected InputParam getSchemaInput(boolean isEn) {
+        return getInputParam("schema",
+                isEn ? "schema" : "模式",
+                isEn ? "please enter schema" : "请填入模式", 1,
+                Validate.newBuilder().setRequired(true).setMessage(isEn ? "please enter schema" : "请填入模式").build(), null);
+    }
 }

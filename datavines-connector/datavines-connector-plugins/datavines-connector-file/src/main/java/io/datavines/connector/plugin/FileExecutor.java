@@ -103,10 +103,15 @@ public class FileExecutor implements Executor {
             List<String> rowList = readPartFileContent(filePath,1,2);
             if (CollectionUtils.isNotEmpty(rowList)) {
                 String content = rowList.get(0);
-                String[] rowDataList = content.split(columnSeparator);
+                String[] rowDataList = content.split(columnSeparator, -1);
 
-                for (int i=0; i<rowDataList.length; i++) {
-                    rowMap.put(keyMap.get(i),rowDataList[i].trim());
+                int n = Math.min(rowDataList.length, keyMap.size());
+                for (int i = 0; i < n; i++) {
+                    String key = keyMap.get(i);
+                    if (key == null) {
+                        continue;
+                    }
+                    rowMap.put(key, rowDataList[i].trim());
                 }
             }
         }
@@ -125,11 +130,15 @@ public class FileExecutor implements Executor {
             List<QueryColumn> queryColumns = new ArrayList<>();
             for (int i = 0; i < headerTypeList.length; i++) {
                 String[] columnSplit = headerTypeList[i].split("@@");
-                keyMap.put(i, columnSplit[0].trim());
+                String colName = columnSplit[0].trim();
+                if (colName.isEmpty()) {
+                    colName = "col_" + i;
+                }
+                keyMap.put(i, colName);
                 if (columnSplit.length == 2) {
-                    queryColumns.add(new QueryColumn(columnSplit[0], columnSplit[1]));
+                    queryColumns.add(new QueryColumn(colName, columnSplit[1]));
                 } else {
-                    queryColumns.add(new QueryColumn(columnSplit[0], ""));
+                    queryColumns.add(new QueryColumn(colName, ""));
                 }
 
             }
@@ -140,10 +149,15 @@ public class FileExecutor implements Executor {
             rowList = readPartFileContent(filePath,startRow,pageSize);
             if (CollectionUtils.isNotEmpty(rowList)) {
                 for (String row: rowList) {
-                    String[] rowDataList = row.split(columnSeparator);
+                    String[] rowDataList = row.split(columnSeparator, -1);
                     Map<String, Object> rowMap = new LinkedHashMap<>();
-                    for (int i=0; i<rowDataList.length; i++) {
-                        rowMap.put(keyMap.get(i),rowDataList[i]);
+                    int n = Math.min(rowDataList.length, keyMap.size());
+                    for (int i = 0; i < n; i++) {
+                        String key = keyMap.get(i);
+                        if (key == null) {
+                            continue;
+                        }
+                        rowMap.put(key, rowDataList[i]);
                     }
                     resultList.add(rowMap);
                 }
@@ -154,7 +168,8 @@ public class FileExecutor implements Executor {
             listWithQueryColumn.setPageSize(pageSize);
 
             Path path = Paths.get(filePath);
-            listWithQueryColumn.setTotalCount(Files.lines(path).count());
+            long lineCount = Files.lines(path).count();
+            listWithQueryColumn.setTotalCount(Math.max(0, lineCount - 1));
         }
 
         return listWithQueryColumn;

@@ -16,77 +16,53 @@
  */
 package io.datavines.connector.plugin;
 
+import com.alibaba.druid.DbType;
 import io.datavines.connector.api.*;
 
-public class FileConnectorFactory implements ConnectorFactory {
+public class KingbaseConnectorFactory extends AbstractJdbcConnectorFactory {
 
     @Override
-    public String getCategory() {
-        return "file";
-    }
-
-    @Override
-    public Connector getConnector() {
-        return new FileConnector();
-    }
-
-    @Override
-    public ResponseConverter getResponseConverter() {
-        return new FileResponseConverter();
+    public ParameterConverter getConnectorParameterConverter() {
+        return new KingbaseParameterConverter();
     }
 
     @Override
     public Dialect getDialect() {
-        return new FileDialect();
+        return new KingbaseDialect();
     }
 
     @Override
-    public ParameterConverter getConnectorParameterConverter() {
-        return new FileParameterConverter();
+    public Connector getConnector() {
+        return new KingbaseConnector(getDataSourceClient());
     }
 
     @Override
     public Executor getExecutor() {
-        return new FileExecutor();
-    }
-
-    @Override
-    public TypeConverter getTypeConverter() {
-        return new FileTypeConverter();
+        return new KingbaseExecutor(getDataSourceClient());
     }
 
     @Override
     public ConfigBuilder getConfigBuilder() {
-        return new FileConfigBuilder();
+        return new KingbaseConfigBuilder();
     }
 
     @Override
-    public DataSourceClient getDataSourceClient() {
-        return null;
-    }
-
-    @Override
-    public StatementSplitter getStatementSplitter() {
-        return null;
-    }
-
-    @Override
-    public StatementParser getStatementParser() {
-        return null;
+    public TypeConverter getTypeConverter() {
+        return new KingbaseTypeConverter();
     }
 
     @Override
     public MetricScript getMetricScript() {
-        return null;
+        return new KingbaseMetricScript();
     }
 
     @Override
-    public Boolean showInFrontend() {
-        return false;
+    public StatementParser getStatementParser() {
+        return new DefaultStatementParser(DbType.postgresql);
     }
 
     @Override
     public String getPluginName() {
-        return "file";
+        return "kingbase";
     }
 }

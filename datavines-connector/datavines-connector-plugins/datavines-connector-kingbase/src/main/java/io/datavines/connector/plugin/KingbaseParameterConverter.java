@@ -14,13 +14,28 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.datavines.common.param;
+package io.datavines.connector.plugin;
 
-import lombok.Data;
-import lombok.EqualsAndHashCode;
+import io.datavines.common.utils.StringUtils;
 
-@Data
-@EqualsAndHashCode(callSuper = true)
-public class TestConnectionRequestParam extends ConnectorRequestParam {
-    private Long id;
+import java.util.Map;
+
+import static io.datavines.common.ConfigConstants.*;
+
+public class KingbaseParameterConverter extends JdbcParameterConverter {
+
+    @Override
+    protected String getUrl(Map<String, Object> parameter) {
+        String url = String.format("jdbc:kingbase8://%s:%s/%s",
+                parameter.get(HOST),
+                parameter.get(PORT),
+                parameter.get(DATABASE));
+        String properties = (String)parameter.get(PROPERTIES);
+        if (StringUtils.isNotEmpty(properties)) {
+            url += "?" + properties;
+        }
+
+        return url;
+    }
+
 }

@@ -85,6 +85,7 @@ const Inner = ({ form }: InnerProps) => {
             {
                 label: intl.formatMessage({ id: 'error_table_store_type' }),
                 name: 'type',
+                tooltip: intl.formatMessage({ id: 'error_table_store_type_tip' }),
                 rules: [
                     {
                         required: true,

@@ -14,13 +14,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.datavines.common.param;
+package io.datavines.connector.plugin;
 
-import lombok.Data;
-import lombok.EqualsAndHashCode;
+public class KingbaseDialect extends JdbcDialect {
 
-@Data
-@EqualsAndHashCode(callSuper = true)
-public class TestConnectionRequestParam extends ConnectorRequestParam {
-    private Long id;
+    @Override
+    public String getDriver() {
+        return "com.kingbase8.Driver";
+    }
 }

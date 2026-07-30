@@ -14,13 +14,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.datavines.common.param;
+package io.datavines.server.repository.service;
 
-import lombok.Data;
-import lombok.EqualsAndHashCode;
+import io.datavines.core.exception.DataVinesServerException;
+import io.datavines.server.api.dto.bo.job.JobBatchImportResult;
+import org.springframework.web.multipart.MultipartFile;
 
-@Data
-@EqualsAndHashCode(callSuper = true)
-public class TestConnectionRequestParam extends ConnectorRequestParam {
-    private Long id;
+public interface JobBatchImportService {
+
+    JobBatchImportResult importJobs(MultipartFile file,
+                                    Long dataSourceId,
+                                    Long errorDataStorageId,
+                                    String splitMode,
+                                    String duplicateStrategy,
+                                    String engineType,
+                                    Integer runningNow) throws DataVinesServerException;
+
+    byte[] templateExcel();
+
+    byte[] templateCsv();
 }

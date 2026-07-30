@@ -23,6 +23,7 @@ import io.datavines.connector.api.ConnectorFactory;
 import io.datavines.core.aop.RefreshToken;
 import io.datavines.core.constant.DataVinesConstants;
 import io.datavines.core.entity.ResultMap;
+import io.datavines.core.utils.LanguageUtils;
 import io.datavines.server.api.dto.bo.storage.ErrorDataStorageCreate;
 import io.datavines.server.api.dto.bo.storage.ErrorDataStoragePageParam;
 import io.datavines.server.api.dto.bo.storage.ErrorDataStorageUpdate;
@@ -129,7 +130,13 @@ public class ErrorDataStorageController {
             }
 
             if (connectorFactory.getDialect().supportToBeErrorDataStorage()) {
-                Item item = new Item(errorDataStorage,errorDataStorage);
+                String label = errorDataStorage;
+                if ("file".equalsIgnoreCase(errorDataStorage)) {
+                    label = LanguageUtils.isZhContext()
+                            ? "file（本地 CSV 文本文件）"
+                            : "file (local CSV text files)";
+                }
+                Item item = new Item(label, errorDataStorage);
                 items.add(item);
             }
         }

@@ -14,13 +14,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.datavines.common.param;
+package io.datavines.connector.plugin;
 
-import lombok.Data;
-import lombok.EqualsAndHashCode;
+import io.datavines.common.datasource.jdbc.BaseJdbcDataSourceInfo;
+import io.datavines.connector.api.DataSourceClient;
 
-@Data
-@EqualsAndHashCode(callSuper = true)
-public class TestConnectionRequestParam extends ConnectorRequestParam {
-    private Long id;
+import java.util.Map;
+
+public class KingbaseExecutor extends BaseJdbcExecutor {
+
+    public KingbaseExecutor(DataSourceClient dataSourceClient) {
+        super(dataSourceClient);
+    }
+
+    @Override
+    public BaseJdbcDataSourceInfo getDatasourceInfo(Map<String,String> param) {
+        return new KingbaseDataSourceInfo(param);
+    }
 }

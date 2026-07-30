@@ -23,6 +23,7 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import io.datavines.common.param.ConnectorResponse;
 import io.datavines.common.param.TestConnectionRequestParam;
 import io.datavines.common.utils.PasswordFilterUtils;
+import io.datavines.common.utils.StringUtils;
 import io.datavines.connector.api.ConnectorFactory;
 import io.datavines.core.enums.Status;
 import io.datavines.core.exception.DataVinesServerException;
@@ -58,6 +59,7 @@ public class ErrorDataStorageServiceImpl extends ServiceImpl<ErrorDataStorageMap
 
     @Override
     public long create(ErrorDataStorageCreate errorDataStorageCreate) throws DataVinesServerException {
+        assertTypeSupported(errorDataStorageCreate.getType());
         if (isErrorDataStorageExist(errorDataStorageCreate.getName())) {
             throw new DataVinesServerException(Status.ERROR_DATA_STORAGE_EXIST_ERROR, errorDataStorageCreate.getName());
         }
@@ -78,6 +80,7 @@ public class ErrorDataStorageServiceImpl extends ServiceImpl<ErrorDataStorageMap
 
     @Override
     public int update(ErrorDataStorageUpdate errorDataStorageUpdate) throws DataVinesServerException {
+        assertTypeSupported(errorDataStorageUpdate.getType());
 
         ErrorDataStorage errorDataStorage = getById(errorDataStorageUpdate.getId());
         if ( errorDataStorage == null) {
@@ -142,5 +145,19 @@ public class ErrorDataStorageServiceImpl extends ServiceImpl<ErrorDataStorageMap
     private boolean isErrorDataStorageExist(String name) {
         ErrorDataStorage user = baseMapper.selectOne(new QueryWrapper<ErrorDataStorage>().lambda().eq(ErrorDataStorage::getName, name));
         return user != null;
+    }
+
+    private void assertTypeSupported(String type) {
+        if (StringUtils.isEmpty(type)) {
+            throw new DataVinesServerException(Status.ERROR_DATA_STORAGE_TYPE_NOT_SUPPORT_ERROR, type);
+        }
+        ConnectorFactory connectorFactory = PluginDiscovery
+                .getMultiKeyPluginDiscovery(ConnectorFactory.class, ConnectorFactory::getPluginNames)
+                .getOrCreatePlugin(type);
+        if (connectorFactory == null
+                || connectorFactory.getDialect() == null
+                || !connectorFactory.getDialect().supportToBeErrorDataStorage()) {
+            throw new DataVinesServerException(Status.ERROR_DATA_STORAGE_TYPE_NOT_SUPPORT_ERROR, type);
+        }
     }
 }

@@ -14,13 +14,33 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.datavines.common.param;
+package io.datavines.server.api.dto.bo.job;
 
 import lombok.Data;
-import lombok.EqualsAndHashCode;
 
 @Data
-@EqualsAndHashCode(callSuper = true)
-public class TestConnectionRequestParam extends ConnectorRequestParam {
-    private Long id;
+public class RuleImportItem {
+
+    private String ruleId;
+
+    private String ruleName;
+
+    private String table;
+
+    private String metricDatabase;
+
+    private String invalidateItemsSql;
+
+    private String expectedValue = "0";
+
+    private String resultFormula = "count";
+
+    private String operator = "eq";
+
+    private double threshold = 0.0;
+
+    private String metricType = "custom_count_sql";
+
+    /** Optional group key for PER_TABLE mode (e.g. JSON job name). */
+    private String groupName;
 }

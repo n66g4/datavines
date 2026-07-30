@@ -51,6 +51,12 @@
 
         <dependency>
             <groupId>io.datavines</groupId>
+            <artifactId>datavines-connector-kingbase</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>io.datavines</groupId>
             <artifactId>datavines-connector-impala</artifactId>
             <version>${project.version}</version>
         </dependency>

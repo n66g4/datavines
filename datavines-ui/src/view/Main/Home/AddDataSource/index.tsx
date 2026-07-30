@@ -171,6 +171,7 @@ export const useAddDataSource = (options: ModalProps) => {
                 const res = await $http.post('/datasource/test', {
                     type,
                     dataSourceParam: JSON.stringify(rest),
+                    ...(initDataRef.current?.id ? { id: initDataRef.current.id } : {}),
                 });
                 // 后端返回 ResultMap: { code, msg, data }
                 if (res?.data === true) {

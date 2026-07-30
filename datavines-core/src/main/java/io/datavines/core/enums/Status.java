@@ -108,6 +108,7 @@ public enum Status {
     ERROR_DATA_STORAGE_NOT_EXIST_ERROR(17010002, "Error Data Storage {0} Not Exist Error", "错误数据存储 {0} 不存在"),
     ERROR_DATA_STORAGE_EXIST_ERROR(17010003, "Error Data Storage {0} is Exist error", "错误数据存储 {0} 已存在"),
     UPDATE_ERROR_DATA_STORAGE_ERROR(17010004, "Update Error Data Storage {0} Error", "更新 错误数据存储 {0} 错误"),
+    ERROR_DATA_STORAGE_TYPE_NOT_SUPPORT_ERROR(17010005, "Error Data Storage type {0} is not supported", "错误数据存储类型 {0} 不支持"),
 
     SLA_ALREADY_EXIST_ERROR(18010001, "SLA {0} Already exist", "SLA {0} 已经存在"),
     SLA_SENDER_ALREADY_EXIST_ERROR(18020001, "SLA Sender {0}  Already exist", "SLA 发送器 {0} 已经存在"),
