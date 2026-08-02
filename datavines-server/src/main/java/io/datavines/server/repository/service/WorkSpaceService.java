@@ -20,6 +20,7 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.service.IService;
 import io.datavines.server.api.dto.bo.workspace.InviteUserIntoWorkspace;
 import io.datavines.server.api.dto.bo.workspace.RemoveUserOutWorkspace;
+import io.datavines.server.api.dto.bo.workspace.UpdateUserWorkspaceRole;
 import io.datavines.server.api.dto.bo.workspace.WorkSpaceCreate;
 import io.datavines.server.api.dto.bo.workspace.WorkSpaceUpdate;
 import io.datavines.server.api.dto.vo.UserVO;
@@ -44,6 +45,8 @@ public interface WorkSpaceService extends IService<WorkSpace> {
     long inviteUserIntoWorkspace(InviteUserIntoWorkspace inviteUserIntoWorkspace);
 
     boolean removeUser(RemoveUserOutWorkspace removeUserOutWorkspace);
+
+    boolean updateUserRole(UpdateUserWorkspaceRole updateUserWorkspaceRole);
 
     IPage<UserVO> listUserByWorkspaceId(Long workspaceId, Integer pageNumber, Integer pageSize);
 }

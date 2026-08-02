@@ -45,7 +45,7 @@ public class User implements Serializable {
     private String email;
 
     @TableField(value = "phone")
-    private Long phone;
+    private String phone;
 
     @TableField(value = "admin")
     private Boolean admin;

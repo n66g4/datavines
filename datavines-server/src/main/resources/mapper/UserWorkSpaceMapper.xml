@@ -37,10 +37,10 @@
     </sql>
 
     <select id="getWorkSpaceUserPage" resultType="io.datavines.server.api.dto.vo.UserVO">
-        select du.id, du.username, du.email, du.phone, duw.update_time
+        select du.id, du.username, du.email, du.phone, duw.role_id as roleId, duw.update_time
           from dv_user du
         join
-        (<include refid="basic_sql"/>) duw
+        (select user_id, role_id, update_time from dv_user_workspace where workspace_id = #{workspaceId}) duw
         on du.id = duw.user_id
         order by duw.update_time desc
 

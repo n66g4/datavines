@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import {
-    Table, Button, message,
+    Table, Button, message, Select,
 } from 'antd';
 import { ColumnsType } from 'antd/lib/table';
 import { useIntl } from 'react-intl';
@@ -8,12 +8,13 @@ import { PlusOutlined } from '@ant-design/icons';
 import { TUserItem } from '@/type/User';
 import { useAddUser } from './useAddUser';
 import { $http } from '@/http';
-import { useSelector } from '@/store';
+import { useSelector, useLoginInfo } from '@/store';
 import { useMount, Popconfirm } from '@/common';
 import Title from '@/component/Title';
 
 const Index = () => {
     const intl = useIntl();
+    const loginInfo = useLoginInfo();
     const [loading, setLoading] = useState(false);
     const { Render: RenderWidgetModal, show } = useAddUser({
         afterClose() {
@@ -70,6 +71,29 @@ const Index = () => {
             setLoading(false);
         }
     };
+    const onRoleChange = async (record: TUserItem, roleId: number) => {
+        if (Number(record.roleId) === roleId) {
+            return;
+        }
+        try {
+            setLoading(true);
+            await $http.put('/workspace/updateUserRole', {
+                userId: record.id,
+                workspaceId,
+                roleId,
+            });
+            message.success(intl.formatMessage({ id: 'common_success' }));
+            getData();
+        } catch (error) {
+            getData();
+        } finally {
+            setLoading(false);
+        }
+    };
+    const roleOptions = [
+        { value: 1, label: intl.formatMessage({ id: 'workspace_role_admin' }) },
+        { value: 2, label: intl.formatMessage({ id: 'workspace_role_member' }) },
+    ];
     const columns: ColumnsType<TUserItem> = [
         {
             title: intl.formatMessage({ id: 'userName_text' }),
@@ -88,6 +112,24 @@ const Index = () => {
             dataIndex: 'phone',
             key: 'phone',
             render: (text: string) => <div>{text || '--'}</div>,
+        },
+        {
+            title: intl.formatMessage({ id: 'workspace_user_role' }),
+            dataIndex: 'roleId',
+            key: 'roleId',
+            width: 140,
+            render: (roleId: any, record: TUserItem) => {
+                const isSelf = String(record.id) === String(loginInfo?.id);
+                return (
+                    <Select
+                        style={{ width: 120 }}
+                        value={Number(roleId) === 1 ? 1 : 2}
+                        options={roleOptions}
+                        disabled={isSelf && Number(roleId) === 1}
+                        onChange={(v) => onRoleChange(record, v)}
+                    />
+                );
+            },
         },
         {
             title: intl.formatMessage({ id: 'common_action' }),
@@ -124,19 +166,9 @@ const Index = () => {
                     type="primary"
                     onClick={() => { show(null); }}
                 >
-                    {intl.formatMessage({ id: 'workspace_user_invite' })}
+                    {intl.formatMessage({ id: 'workspace_user_create' })}
                 </Button>
             </Title>
-            {/* <div style={{ paddingTop: '20px' }}>
-                <div className="dv-flex-between">
-                    <span />
-                    <div style={{ textAlign: 'right', marginBottom: 10 }}>
-                        <Button icon={<PlusOutlined />} type="primary" onClick={() => { show(null); }}>
-                            {intl.formatMessage({ id: 'workspace_user_invite' })}
-                        </Button>
-                    </div>
-                </div>
-            </div> */}
             <div style={{
                 marginTop: '20px',
             }}

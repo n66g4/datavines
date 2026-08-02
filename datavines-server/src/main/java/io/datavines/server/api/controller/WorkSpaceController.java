@@ -18,10 +18,12 @@ package io.datavines.server.api.controller;
 
 import io.datavines.core.constant.DataVinesConstants;
 import io.datavines.core.aop.RefreshToken;
-import io.datavines.server.api.dto.bo.workspace.InviteUserIntoWorkspace;
+import io.datavines.server.api.dto.bo.user.UserCreate;
 import io.datavines.server.api.dto.bo.workspace.RemoveUserOutWorkspace;
+import io.datavines.server.api.dto.bo.workspace.UpdateUserWorkspaceRole;
 import io.datavines.server.api.dto.bo.workspace.WorkSpaceCreate;
 import io.datavines.server.api.dto.bo.workspace.WorkSpaceUpdate;
+import io.datavines.server.repository.service.UserService;
 import io.datavines.server.repository.service.WorkSpaceService;
 import io.datavines.core.exception.DataVinesServerException;
 import io.swagger.annotations.Api;
@@ -40,6 +42,9 @@ public class WorkSpaceController {
 
     @Autowired
     private WorkSpaceService workSpaceService;
+
+    @Autowired
+    private UserService userService;
 
     @ApiOperation(value = "create workspace")
     @PostMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
@@ -65,16 +70,22 @@ public class WorkSpaceController {
         return workSpaceService.listByUserId();
     }
 
-    @ApiOperation(value = "invite user into workspace")
-    @PostMapping(value = "/inviteUser",consumes = MediaType.APPLICATION_JSON_VALUE)
-    public Object inviteUserIntoWorkspace(@Valid @RequestBody InviteUserIntoWorkspace inviteUserIntoWorkspace) throws DataVinesServerException {
-        return workSpaceService.inviteUserIntoWorkspace(inviteUserIntoWorkspace);
+    @ApiOperation(value = "create user into workspace")
+    @PostMapping(value = "/createUser", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public Object createUser(@Valid @RequestBody UserCreate userCreate) throws DataVinesServerException {
+        return userService.createUserInWorkspace(userCreate);
     }
 
     @ApiOperation(value = "user removed workspace")
     @DeleteMapping(value = "/removeUser",consumes = MediaType.APPLICATION_JSON_VALUE)
     public Object removeUser(@Valid @RequestBody RemoveUserOutWorkspace removeUserOutWorkspace)  {
         return workSpaceService.removeUser(removeUserOutWorkspace);
+    }
+
+    @ApiOperation(value = "update user role in workspace")
+    @PutMapping(value = "/updateUserRole", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public Object updateUserRole(@Valid @RequestBody UpdateUserWorkspaceRole updateUserWorkspaceRole) {
+        return workSpaceService.updateUserRole(updateUserWorkspaceRole);
     }
 
     @ApiOperation(value = "list user by workspace id")

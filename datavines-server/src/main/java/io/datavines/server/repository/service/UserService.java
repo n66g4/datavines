@@ -29,6 +29,8 @@ public interface UserService extends IService<User> {
 
     UserLoginResult login(UserLogin userLogin) throws DataVinesException;
 
+    UserBaseInfo createUserInWorkspace(UserCreate userCreate) throws DataVinesException;
+
     UserBaseInfo register(UserRegister userRegister) throws DataVinesException;
 
     Boolean updateUserInfo(UserUpdate userUpdate);

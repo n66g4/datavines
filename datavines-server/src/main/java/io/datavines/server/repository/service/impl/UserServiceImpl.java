@@ -24,12 +24,11 @@ import io.datavines.server.api.dto.vo.UserBaseInfo;
 import io.datavines.server.api.dto.vo.UserLoginResult;
 import io.datavines.server.repository.entity.User;
 import io.datavines.server.repository.entity.UserWorkSpace;
-import io.datavines.server.repository.entity.WorkSpace;
 import io.datavines.server.repository.mapper.UserMapper;
 import io.datavines.server.repository.service.UserService;
 import io.datavines.core.exception.DataVinesServerException;
 import io.datavines.server.repository.service.UserWorkSpaceService;
-import io.datavines.server.repository.service.WorkSpaceService;
+import io.datavines.server.utils.ContextHolder;
 import jodd.util.BCrypt;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.BeanUtils;
@@ -42,9 +41,6 @@ import java.time.LocalDateTime;
 @Slf4j
 @Service("userService")
 public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements UserService {
-
-    @Autowired
-    private WorkSpaceService workSpaceService;
 
     @Autowired
     private UserWorkSpaceService userWorkSpaceService;
@@ -68,7 +64,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
                 BeanUtils.copyProperties(user, result);
                 return result;
             } else {
-                log.error("Username({}) password ({}) is wrong", username, password);
+                log.error("Username({}) password is wrong", username);
                 throw new DataVinesServerException(Status.USERNAME_OR_PASSWORD_ERROR);
             }
         }
@@ -78,50 +74,61 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public UserBaseInfo register(UserRegister userRegister) throws DataVinesServerException {
-        String username = userRegister.getUsername();
+    public UserBaseInfo createUserInWorkspace(UserCreate userCreate) throws DataVinesServerException {
+        Long operatorId = ContextHolder.getUserId();
+        UserWorkSpace operatorWs = userWorkSpaceService.getOne(new QueryWrapper<UserWorkSpace>().lambda()
+                .eq(UserWorkSpace::getUserId, operatorId)
+                .eq(UserWorkSpace::getWorkspaceId, userCreate.getWorkspaceId()));
+        if (operatorWs == null || operatorWs.getRoleId() == null || operatorWs.getRoleId() != 1L) {
+            throw new DataVinesServerException(Status.USER_HAS_NO_AUTHORIZE_TO_REMOVE);
+        }
 
-        if(!isUserExist(username)) {
-            User user = new User();
-
-            userRegister.setPassword(BCrypt.hashpw(userRegister.getPassword(), BCrypt.gensalt()));
-            BeanUtils.copyProperties(userRegister, user);
-            user.setCreateTime(LocalDateTime.now());
-            user.setUpdateTime(LocalDateTime.now());
-
-            if (baseMapper.insert(user) <= 0) {
-                log.info("Register fail, userRegister:{}", userRegister);
-                throw new DataVinesServerException(Status.REGISTER_USER_ERROR, username);
-            }
-
-            UserBaseInfo userBaseInfo = new UserBaseInfo();
-            BeanUtils.copyProperties(user, userBaseInfo);
-
-            //create default workspace
-            WorkSpace workSpace = new WorkSpace();
-            workSpace.setName(username + "'s default");
-            workSpace.setCreateBy(user.getId());
-            workSpace.setCreateTime(LocalDateTime.now());
-            workSpace.setUpdateBy(user.getId());
-            workSpace.setUpdateTime(LocalDateTime.now());
-            workSpaceService.save(workSpace);
-
-            UserWorkSpace userWorkSpace = new UserWorkSpace();
-            userWorkSpace.setUserId(user.getId());
-            userWorkSpace.setWorkspaceId(workSpace.getId());
-            userWorkSpace.setRoleId(1L);
-            userWorkSpace.setCreateBy(user.getId());
-            userWorkSpace.setCreateTime(LocalDateTime.now());
-            userWorkSpace.setUpdateBy(user.getId());
-            userWorkSpace.setUpdateTime(LocalDateTime.now());
-            userWorkSpaceService.save(userWorkSpace);
-
-            return userBaseInfo;
-        } else {
-            log.info("The username({}) has been registered", username);
+        String username = userCreate.getUsername();
+        if (isUserExist(username)) {
             throw new DataVinesServerException(Status.USERNAME_HAS_BEEN_REGISTERED_ERROR, username);
         }
 
+        User user = new User();
+        user.setUsername(username);
+        user.setEmail(userCreate.getEmail());
+        user.setPhone(userCreate.getPhone());
+        user.setPassword(BCrypt.hashpw(userCreate.getPassword(), BCrypt.gensalt()));
+        user.setCreateTime(LocalDateTime.now());
+        user.setUpdateTime(LocalDateTime.now());
+        if (baseMapper.insert(user) <= 0) {
+            throw new DataVinesServerException(Status.REGISTER_USER_ERROR, username);
+        }
+
+        UserWorkSpace exist = userWorkSpaceService.getOne(new QueryWrapper<UserWorkSpace>().lambda()
+                .eq(UserWorkSpace::getUserId, user.getId())
+                .eq(UserWorkSpace::getWorkspaceId, userCreate.getWorkspaceId()));
+        if (exist != null) {
+            throw new DataVinesServerException(Status.USER_IS_IN_WORKSPACE_ERROR);
+        }
+
+        UserWorkSpace userWorkSpace = new UserWorkSpace();
+        userWorkSpace.setUserId(user.getId());
+        userWorkSpace.setWorkspaceId(userCreate.getWorkspaceId());
+        Long roleId = userCreate.getRoleId() == null ? 2L : userCreate.getRoleId();
+        if (roleId != 1L && roleId != 2L) {
+            throw new DataVinesServerException(Status.USER_ROLE_INVALID);
+        }
+        userWorkSpace.setRoleId(roleId);
+        userWorkSpace.setCreateBy(operatorId);
+        userWorkSpace.setCreateTime(LocalDateTime.now());
+        userWorkSpace.setUpdateBy(operatorId);
+        userWorkSpace.setUpdateTime(LocalDateTime.now());
+        userWorkSpaceService.save(userWorkSpace);
+
+        UserBaseInfo userBaseInfo = new UserBaseInfo();
+        BeanUtils.copyProperties(user, userBaseInfo);
+        return userBaseInfo;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public UserBaseInfo register(UserRegister userRegister) throws DataVinesServerException {
+        throw new DataVinesServerException(Status.REGISTER_CLOSED_ERROR);
     }
 
     @Override

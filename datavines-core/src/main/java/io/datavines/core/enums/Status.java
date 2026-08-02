@@ -47,6 +47,9 @@ public enum Status {
     CREATE_VERIFICATION_IMAGE_ERROR(10020005, "create verification image error", "创建验证码错误"),
     EXPIRED_VERIFICATION_CODE(10020006, "expired verification code", "验证码已过期，请重新刷新"),
     INVALID_VERIFICATION_CODE(10020007, "invalid verification code", "错误的验证码，请重新输入"),
+    REGISTER_CLOSED_ERROR(10020008, "Public registration is closed", "公开注册已关闭，请联系管理员创建账号"),
+    LOGIN_ACCOUNT_LOCKED(10020009, "Account temporarily locked, try again later", "登录失败次数过多，账号已临时锁定，请稍后再试"),
+    LOGIN_CAPTCHA_REQUIRED(10020010, "Captcha required", "请输入验证码"),
     OLD_PASSWORD_IS_INCORRECT_ERROR(10020004, "Old Password is Incorrect", "旧密码错误"),
     NEW_PASSWORD_CONFIRM_IS_INCORRECT_ERROR(10020004, "New Password Confirm is Incorrect", "新密码确认错误"),
 
@@ -57,6 +60,9 @@ public enum Status {
     USER_IS_IN_WORKSPACE_ERROR(11010005, "User is in Workspace", "用户已经在工作空间错误"),
     USER_HAS_NO_AUTHORIZE_TO_REMOVE(11010006, "User has no authorize to remove", "用户没有权限移除错误"),
     USER_HAS_ONLY_ONE_WORKSPACE(11010007, "User has only one Workspace, can not exist", "用户只有一个工作空间，无法移除或退出"),
+    USER_ROLE_INVALID(11010008, "Invalid workspace role", "无效的工作空间角色"),
+    CANNOT_DEMOTE_SELF_ADMIN(11010009, "Cannot demote yourself from admin", "不能取消自己的管理员身份"),
+    CANNOT_DEMOTE_LAST_ADMIN(11010010, "Cannot demote the last admin in workspace", "不能取消空间内唯一管理员"),
 
     DATASOURCE_EXIST_ERROR(12010001, "DataSource {0} is Exist error", "数据源 {0} 已存在错误"),
     CREATE_DATASOURCE_ERROR(12010002, "Create DataSource {0} Error", "创建数据源 {0} 错误"),
@@ -109,6 +115,10 @@ public enum Status {
     ERROR_DATA_STORAGE_EXIST_ERROR(17010003, "Error Data Storage {0} is Exist error", "错误数据存储 {0} 已存在"),
     UPDATE_ERROR_DATA_STORAGE_ERROR(17010004, "Update Error Data Storage {0} Error", "更新 错误数据存储 {0} 错误"),
     ERROR_DATA_STORAGE_TYPE_NOT_SUPPORT_ERROR(17010005, "Error Data Storage type {0} is not supported", "错误数据存储类型 {0} 不支持"),
+
+    OPS_REPORT_PROFILE_NOT_EXIST_ERROR(17020001, "Ops report profile {0} not exist", "统计报表定义 {0} 不存在"),
+    OPS_REPORT_RUN_NOT_EXIST_ERROR(17020002, "Ops report run {0} not exist", "统计报表运行 {0} 不存在"),
+    OPS_REPORT_GENERATE_ERROR(17020003, "Ops report generate failed: {0}", "统计报表生成失败: {0}"),
 
     SLA_ALREADY_EXIST_ERROR(18010001, "SLA {0} Already exist", "SLA {0} 已经存在"),
     SLA_SENDER_ALREADY_EXIST_ERROR(18020001, "SLA Sender {0}  Already exist", "SLA 发送器 {0} 已经存在"),

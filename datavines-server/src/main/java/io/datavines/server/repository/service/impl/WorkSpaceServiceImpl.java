@@ -23,6 +23,7 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import io.datavines.core.enums.Status;
 import io.datavines.server.api.dto.bo.workspace.InviteUserIntoWorkspace;
 import io.datavines.server.api.dto.bo.workspace.RemoveUserOutWorkspace;
+import io.datavines.server.api.dto.bo.workspace.UpdateUserWorkspaceRole;
 import io.datavines.server.api.dto.bo.workspace.WorkSpaceCreate;
 import io.datavines.server.api.dto.bo.workspace.WorkSpaceUpdate;
 import io.datavines.server.api.dto.vo.UserVO;
@@ -41,6 +42,7 @@ import org.apache.commons.collections4.CollectionUtils;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
@@ -165,23 +167,89 @@ public class WorkSpaceServiceImpl extends ServiceImpl<WorkSpaceMapper, WorkSpace
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public boolean removeUser(RemoveUserOutWorkspace removeUserOutWorkspace) {
-        List<UserWorkSpace> userWorkSpaceList = userWorkSpaceService.list(new QueryWrapper<UserWorkSpace>().lambda().eq(UserWorkSpace::getUserId, removeUserOutWorkspace.getUserId()));
+        Long targetUserId = removeUserOutWorkspace.getUserId();
+        Long workspaceId = removeUserOutWorkspace.getWorkspaceId();
+        Long operatorId = ContextHolder.getUserId();
+        boolean isSelf = targetUserId.equals(operatorId);
 
-        if (CollectionUtils.isNotEmpty(userWorkSpaceList) && userWorkSpaceList.size() == 1) {
+        List<UserWorkSpace> targetMemberships = userWorkSpaceService.list(
+                new QueryWrapper<UserWorkSpace>().lambda().eq(UserWorkSpace::getUserId, targetUserId));
+
+        // Users cannot exit their only workspace by themselves.
+        if (isSelf && CollectionUtils.isNotEmpty(targetMemberships) && targetMemberships.size() == 1) {
             throw new DataVinesServerException(Status.USER_HAS_ONLY_ONE_WORKSPACE);
         }
 
-        UserWorkSpace userWorkSpace = userWorkSpaceService.getOne(new QueryWrapper<UserWorkSpace>().lambda()
-                .eq(UserWorkSpace::getUserId,ContextHolder.getUserId()).eq(UserWorkSpace::getWorkspaceId, removeUserOutWorkspace.getWorkspaceId()));
+        UserWorkSpace operatorWs = userWorkSpaceService.getOne(new QueryWrapper<UserWorkSpace>().lambda()
+                .eq(UserWorkSpace::getUserId, operatorId)
+                .eq(UserWorkSpace::getWorkspaceId, workspaceId));
 
-        if (userWorkSpace != null &&
-                ( (userWorkSpace.getRoleId() != null && userWorkSpace.getRoleId() == 1)
-                        || removeUserOutWorkspace.getUserId().equals(ContextHolder.getUserId()))) {
-            return userWorkSpaceService.remove(new QueryWrapper<UserWorkSpace>().lambda()
-                    .eq(UserWorkSpace::getUserId,removeUserOutWorkspace.getUserId()).eq(UserWorkSpace::getWorkspaceId, removeUserOutWorkspace.getWorkspaceId()));
+        boolean authorized = operatorWs != null
+                && ((operatorWs.getRoleId() != null && operatorWs.getRoleId() == 1) || isSelf);
+        if (!authorized) {
+            throw new DataVinesServerException(Status.USER_HAS_NO_AUTHORIZE_TO_REMOVE);
         }
 
-        throw new DataVinesServerException(Status.USER_HAS_NO_AUTHORIZE_TO_REMOVE);
+        boolean removed = userWorkSpaceService.remove(new QueryWrapper<UserWorkSpace>().lambda()
+                .eq(UserWorkSpace::getUserId, targetUserId)
+                .eq(UserWorkSpace::getWorkspaceId, workspaceId));
+
+        // Admin removes another user from their last workspace → delete the account.
+        if (removed && !isSelf && CollectionUtils.isNotEmpty(targetMemberships) && targetMemberships.size() == 1) {
+            userService.removeById(targetUserId);
+        }
+        return removed;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public boolean updateUserRole(UpdateUserWorkspaceRole req) {
+        Long roleId = req.getRoleId();
+        if (roleId == null || (roleId != 1L && roleId != 2L)) {
+            throw new DataVinesServerException(Status.USER_ROLE_INVALID);
+        }
+
+        Long operatorId = ContextHolder.getUserId();
+        Long workspaceId = req.getWorkspaceId();
+        Long targetUserId = req.getUserId();
+
+        UserWorkSpace operatorWs = userWorkSpaceService.getOne(new QueryWrapper<UserWorkSpace>().lambda()
+                .eq(UserWorkSpace::getUserId, operatorId)
+                .eq(UserWorkSpace::getWorkspaceId, workspaceId));
+        if (operatorWs == null || operatorWs.getRoleId() == null || operatorWs.getRoleId() != 1L) {
+            throw new DataVinesServerException(Status.USER_HAS_NO_AUTHORIZE_TO_REMOVE);
+        }
+
+        UserWorkSpace targetWs = userWorkSpaceService.getOne(new QueryWrapper<UserWorkSpace>().lambda()
+                .eq(UserWorkSpace::getUserId, targetUserId)
+                .eq(UserWorkSpace::getWorkspaceId, workspaceId));
+        if (targetWs == null) {
+            throw new DataVinesServerException(Status.USER_IS_NOT_EXIST_ERROR);
+        }
+
+        Long oldRole = targetWs.getRoleId() == null ? 2L : targetWs.getRoleId();
+        if (oldRole.equals(roleId)) {
+            return true;
+        }
+
+        // Demoting admin → member
+        if (oldRole == 1L && roleId == 2L) {
+            if (targetUserId.equals(operatorId)) {
+                throw new DataVinesServerException(Status.CANNOT_DEMOTE_SELF_ADMIN);
+            }
+            long adminCount = userWorkSpaceService.count(new QueryWrapper<UserWorkSpace>().lambda()
+                    .eq(UserWorkSpace::getWorkspaceId, workspaceId)
+                    .eq(UserWorkSpace::getRoleId, 1L));
+            if (adminCount <= 1) {
+                throw new DataVinesServerException(Status.CANNOT_DEMOTE_LAST_ADMIN);
+            }
+        }
+
+        targetWs.setRoleId(roleId);
+        targetWs.setUpdateBy(operatorId);
+        targetWs.setUpdateTime(LocalDateTime.now());
+        return userWorkSpaceService.updateById(targetWs);
     }
 }
