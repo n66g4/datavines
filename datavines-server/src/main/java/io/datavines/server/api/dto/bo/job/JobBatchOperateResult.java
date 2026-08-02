@@ -18,32 +18,34 @@ package io.datavines.server.api.dto.bo.job;
 
 import lombok.Data;
 
+import java.util.ArrayList;
+import java.util.List;
+
 @Data
-public class RuleImportItem {
+public class JobBatchOperateResult {
+    private int successCount;
+    private int failCount;
+    private List<Item> items = new ArrayList<>();
 
-    private String ruleId;
+    @Data
+    public static class Item {
+        private Long jobId;
+        private boolean success;
+        private String message;
 
-    private String ruleName;
+        public static Item ok(Long jobId) {
+            Item i = new Item();
+            i.jobId = jobId;
+            i.success = true;
+            return i;
+        }
 
-    private String table;
-
-    private String metricDatabase;
-
-    private String invalidateItemsSql;
-
-    private String expectedValue = "0";
-
-    private String resultFormula = "count";
-
-    private String operator = "eq";
-
-    private double threshold = 0.0;
-
-    private String metricType = "custom_count_sql";
-
-    /** Optional business tag name (maps to dv_job.tag_name). */
-    private String tagName;
-
-    /** Optional group key for PER_TABLE mode (e.g. JSON job name). */
-    private String groupName;
+        public static Item fail(Long jobId, String message) {
+            Item i = new Item();
+            i.jobId = jobId;
+            i.success = false;
+            i.message = message;
+            return i;
+        }
+    }
 }

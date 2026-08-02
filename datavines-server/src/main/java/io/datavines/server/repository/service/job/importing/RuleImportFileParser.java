@@ -19,6 +19,7 @@ package io.datavines.server.repository.service.job.importing;
 import com.fasterxml.jackson.databind.JsonNode;
 import io.datavines.common.utils.JSONUtils;
 import io.datavines.common.utils.StringUtils;
+import io.datavines.connector.api.utils.SqlUtils;
 import io.datavines.core.exception.DataVinesServerException;
 import io.datavines.server.api.dto.bo.job.RuleImportItem;
 import org.apache.poi.ss.usermodel.*;
@@ -99,6 +100,10 @@ public final class RuleImportFileParser {
             item.setTable(firstNonEmpty(text(mp, "table"), text(node, "table")));
             item.setMetricDatabase(firstNonEmpty(text(mp, "metric_database"), text(mp, "database")));
             item.setInvalidateItemsSql(firstNonEmpty(text(mp, "invalidate_items_sql"), text(node, "invalidate_items_sql")));
+            item.setTagName(firstNonEmpty(
+                    text(mp, "tag_name"), text(mp, "business_tag"), text(mp, "业务标签"),
+                    text(node, "tag_name"), text(node, "business_tag"), text(node, "业务标签"),
+                    text(root, "tag_name"), text(root, "business_tag"), text(root, "业务标签")));
             item.setExpectedValue(defaultStr(text(node.path("expectedParameter"), "expected_value"),
                     defaultStr(text(node, "expected_value"), "0")));
             item.setResultFormula(defaultStr(text(node, "resultFormula"), "count"));
@@ -191,16 +196,17 @@ public final class RuleImportFileParser {
     }
 
     public static byte[] buildCsvTemplate() {
-        String csv = "rule_id,rule_name,table,metric_database,invalidate_items_sql,expected_value,result_formula,operator,threshold,metric_type\n"
-                + "70,rule70_sample,demo_table,demo_db,\"SELECT * FROM demo_table WHERE (EvaluationResults = '2' AND InspPicture IS NULL) AND (DATA_STATE IS NULL OR DATA_STATE <> '0')\",0,count,eq,0,custom_count_sql\n";
+        String csv = "rule_id,rule_name,业务标签,table,metric_database,invalidate_items_sql,expected_value,result_formula,operator,threshold,metric_type\n"
+                + "70,rule70_sample,示例业务,,demo_db,\"SELECT * FROM demo_table WHERE (EvaluationResults = '2' AND InspPicture IS NULL) AND (DATA_STATE IS NULL OR DATA_STATE <> '0')\",0,count,eq,0,custom_count_sql\n";
         return csv.getBytes(StandardCharsets.UTF_8);
     }
 
     public static byte[] buildExcelTemplate() {
         try (Workbook workbook = new XSSFWorkbook()) {
             Sheet sheet = workbook.createSheet("rules");
+            // table 可空：导入时从 SQL 自动解析；业务标签对应作业 tag_name
             String[] headers = new String[]{
-                    "rule_id", "rule_name", "table", "metric_database", "invalidate_items_sql",
+                    "rule_id", "rule_name", "业务标签", "table", "metric_database", "invalidate_items_sql",
                     "expected_value", "result_formula", "operator", "threshold", "metric_type"
             };
             Row header = sheet.createRow(0);
@@ -210,15 +216,16 @@ public final class RuleImportFileParser {
             Row sample = sheet.createRow(1);
             sample.createCell(0).setCellValue("70");
             sample.createCell(1).setCellValue("rule70_sample");
-            sample.createCell(2).setCellValue("demo_table");
-            sample.createCell(3).setCellValue("demo_db");
-            sample.createCell(4).setCellValue(
+            sample.createCell(2).setCellValue("示例业务");
+            sample.createCell(3).setCellValue("");
+            sample.createCell(4).setCellValue("demo_db");
+            sample.createCell(5).setCellValue(
                     "SELECT * FROM demo_table WHERE (EvaluationResults = '2' AND InspPicture IS NULL) AND (DATA_STATE IS NULL OR DATA_STATE <> '0')");
-            sample.createCell(5).setCellValue("0");
-            sample.createCell(6).setCellValue("count");
-            sample.createCell(7).setCellValue("eq");
-            sample.createCell(8).setCellValue("0");
-            sample.createCell(9).setCellValue("custom_count_sql");
+            sample.createCell(6).setCellValue("0");
+            sample.createCell(7).setCellValue("count");
+            sample.createCell(8).setCellValue("eq");
+            sample.createCell(9).setCellValue("0");
+            sample.createCell(10).setCellValue("custom_count_sql");
             for (int i = 0; i < headers.length; i++) {
                 sheet.autoSizeColumn(i);
             }
@@ -241,6 +248,7 @@ public final class RuleImportFileParser {
         item.setResultFormula(defaultStr(map.get("result_formula"), "count"));
         item.setOperator(defaultStr(map.get("operator"), "eq"));
         item.setMetricType(defaultStr(map.get("metric_type"), "custom_count_sql"));
+        item.setTagName(firstNonEmpty(map.get("tag_name"), map.get("business_tag"), map.get("业务标签")));
         String threshold = map.get("threshold");
         if (StringUtils.isNotEmpty(threshold)) {
             try {
@@ -256,12 +264,17 @@ public final class RuleImportFileParser {
         if (StringUtils.isEmpty(item.getRuleName())) {
             throw new DataVinesServerException("rule_name is required");
         }
-        if (StringUtils.isEmpty(item.getTable())) {
-            throw new DataVinesServerException("table is required for " + item.getRuleName());
-        }
         if (StringUtils.isEmpty(item.getInvalidateItemsSql())) {
             throw new DataVinesServerException(
                     "invalidate_items_sql is required for " + item.getRuleName());
+        }
+        // SQL is source of truth for table when parsable (same as JobServiceImpl)
+        String table = SqlUtils.extractPrimaryTableName(item.getInvalidateItemsSql());
+        if (StringUtils.isNotEmpty(table)) {
+            item.setTable(table);
+        } else if (StringUtils.isEmpty(item.getTable())) {
+            throw new DataVinesServerException(
+                    "table is required (or parsable from SQL) for " + item.getRuleName());
         }
     }
 
@@ -274,8 +287,8 @@ public final class RuleImportFileParser {
                 map.put(name, cell.getColumnIndex());
             }
         }
-        if (!map.containsKey("rule_name") || !map.containsKey("table") || !map.containsKey("invalidate_items_sql")) {
-            throw new DataVinesServerException("header must include rule_name,table,invalidate_items_sql");
+        if (!map.containsKey("rule_name") || !map.containsKey("invalidate_items_sql")) {
+            throw new DataVinesServerException("header must include rule_name,invalidate_items_sql");
         }
         return map;
     }

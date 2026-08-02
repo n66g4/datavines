@@ -285,30 +285,26 @@ public abstract class BaseLocalConfigurationBuilder extends BaseJobConfiguration
                 invalidateItemCanOutput &= sqlMetric.isInvalidateItemsCanOutput();
                 metricInputParameter.put(INVALIDATE_ITEM_CAN_OUTPUT, String.valueOf(invalidateItemCanOutput));
 
+                // Materialize invalidate items once (in-memory for local engine), then count from the same snapshot.
                 if (sqlMetric.getInvalidateItems(metricInputParameter) != null) {
-                    // generate actual value execute sql
-                    ExecuteSql actualValueExecuteSql = sqlMetric.getDirectActualValue(metricInputParameter);
-                    if (actualValueExecuteSql != null) {
-                        actualValueExecuteSql.setResultTable(sqlMetric.getDirectActualValue(metricInputParameter).getResultTable());
-                        MetricParserUtils.setTransformerConfig(
-                                metricInputParameter,
-                                transformConfigs,
-                                actualValueExecuteSql,
-                                TransformType.ACTUAL_VALUE.getDescription());
-                        metricInputParameter.put(ACTUAL_TABLE, sqlMetric.getActualValue(metricInputParameter).getResultTable());
-                    }
-                } else {
-                    // generate actual value execute sql
-                    ExecuteSql actualValueExecuteSql = sqlMetric.getActualValue(metricInputParameter);
-                    if (actualValueExecuteSql != null) {
-                        actualValueExecuteSql.setResultTable(sqlMetric.getActualValue(metricInputParameter).getResultTable());
-                        MetricParserUtils.setTransformerConfig(
-                                metricInputParameter,
-                                transformConfigs,
-                                actualValueExecuteSql,
-                                TransformType.ACTUAL_VALUE.getDescription());
-                        metricInputParameter.put(ACTUAL_TABLE, sqlMetric.getActualValue(metricInputParameter).getResultTable());
-                    }
+                    ExecuteSql invalidateItemExecuteSql = sqlMetric.getInvalidateItems(metricInputParameter);
+                    metricInputParameter.put(INVALIDATE_ITEMS_TABLE, invalidateItemExecuteSql.getResultTable());
+                    MetricParserUtils.setTransformerConfig(
+                            metricInputParameter,
+                            transformConfigs,
+                            invalidateItemExecuteSql,
+                            TransformType.INVALIDATE_ITEMS.getDescription());
+                }
+
+                ExecuteSql actualValueExecuteSql = sqlMetric.getActualValue(metricInputParameter);
+                if (actualValueExecuteSql != null) {
+                    actualValueExecuteSql.setResultTable(sqlMetric.getActualValue(metricInputParameter).getResultTable());
+                    MetricParserUtils.setTransformerConfig(
+                            metricInputParameter,
+                            transformConfigs,
+                            actualValueExecuteSql,
+                            TransformType.ACTUAL_VALUE.getDescription());
+                    metricInputParameter.put(ACTUAL_TABLE, sqlMetric.getActualValue(metricInputParameter).getResultTable());
                 }
 
                 // generate expected value transform sql

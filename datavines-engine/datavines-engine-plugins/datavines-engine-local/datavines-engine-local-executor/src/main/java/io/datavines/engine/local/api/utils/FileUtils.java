@@ -57,7 +57,8 @@ public class FileUtils {
                 org.apache.commons.io.FileUtils.forceMkdir(localErrorDir);
             }
 
-            bw = new BufferedWriter(new FileWriter(directory + File.separator + name +".csv",true));
+            // First page truncates; subsequent pages append.
+            bw = new BufferedWriter(new FileWriter(directory + File.separator + name +".csv", !needHeader));
 
             if (resultListWithColumns != null && CollectionUtils.isNotEmpty(resultListWithColumns.getResultList())) {
                 List<QueryColumn> columns = resultListWithColumns.getColumns();
@@ -73,8 +74,8 @@ public class FileUtils {
                 for (Map<String, Object> row: resultListWithColumns.getResultList()) {
                     List<String> rowDataList = new ArrayList<>();
                     headerList.forEach(header -> {
-                        rowDataList.add((String.valueOf(row.get(header.split(DOUBLE_AT)[0]))).toLowerCase());
-
+                        rowDataList.add(sanitizeCsvField(
+                                String.valueOf(row.get(header.split(DOUBLE_AT)[0])), columnSeparator).toLowerCase());
                     });
                     bw.write(String.join(columnSeparator,rowDataList));
                     bw.newLine();
@@ -100,6 +101,18 @@ public class FileUtils {
                 log.error("close buffer writer error {1}", ioe);
             }
         }
+    }
+
+    /** Keep one physical line per row: strip CR/LF and delimiter from cell text. */
+    private static String sanitizeCsvField(String value, String columnSeparator) {
+        if (value == null || "null".equalsIgnoreCase(value)) {
+            return "";
+        }
+        String out = value.replace("\r", " ").replace("\n", " ");
+        if (columnSeparator != null && !columnSeparator.isEmpty()) {
+            out = out.replace(columnSeparator, " ");
+        }
+        return out;
     }
 
     public static void writeToLocal(List<String> resultList,

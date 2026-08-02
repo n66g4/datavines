@@ -29,7 +29,6 @@ import static io.datavines.common.ConfigConstants.SRC_CONNECTOR_TYPE;
 
 public class ConnectionHolder {
 
-    private static final Logger logger = LoggerFactory.getLogger(ConnectionHolder.class);
     private Connection connection;
 
     private final Config config;
@@ -44,18 +43,48 @@ public class ConnectionHolder {
     }
 
     public Connection getConnection() throws SQLException {
-        if (connection == null || connection.isClosed() || !connection.isValid(10)) {
+        // Resolve logger per call: static init would freeze ThreadLocal job logger of the first job.
+        Logger logger = LoggerFactory.getLogger(ConnectionHolder.class);
+        if (needReconnect()) {
+            closeQuietly();
             ConnectorFactory connectorFactory = PluginDiscovery.getMultiKeyPluginDiscovery(ConnectorFactory.class, ConnectorFactory::getPluginNames)
-                    
                     .getNewPlugin(config.getString(SRC_CONNECTOR_TYPE));
             connection = connectorFactory.getDataSourceClient().getConnection(config.configMap(), logger);
         }
         return connection;
     }
 
+    private boolean needReconnect() throws SQLException {
+        if (connection == null) {
+            return true;
+        }
+        if (connection.isClosed()) {
+            return true;
+        }
+        // Short validity check; do not use a long timeout that blocks the job thread.
+        try {
+            return !connection.isValid(1);
+        } catch (SQLException e) {
+            return true;
+        }
+    }
+
+    private void closeQuietly() {
+        if (connection == null) {
+            return;
+        }
+        try {
+            connection.close();
+        } catch (SQLException ignored) {
+            // best-effort return to pool
+        }
+        connection = null;
+    }
+
     public void close() throws SQLException {
         if (connection != null) {
             connection.close();
+            connection = null;
         }
     }
 }

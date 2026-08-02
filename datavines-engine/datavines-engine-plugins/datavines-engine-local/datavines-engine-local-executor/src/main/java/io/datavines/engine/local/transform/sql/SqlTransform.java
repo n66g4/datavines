@@ -89,6 +89,9 @@ public class SqlTransform implements LocalTransform {
             String pluginType = config.getString(PLUGIN_TYPE);
             logger.info("transform sql is: {}, transform_type is : {}", sql, pluginType);
             switch (TransformType.of(pluginType)){
+                case INVALIDATE_ITEMS:
+                    resultList = new InvalidateItemsExecutor().execute(env.getSourceConnection().getConnection(), config, env);
+                    break;
                 case ACTUAL_VALUE :
                     resultList = new ActualValueExecutor().execute(env.getSourceConnection().getConnection(), config, env);
                     break;

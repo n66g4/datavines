@@ -19,7 +19,9 @@ package io.datavines.server.api.controller;
 import io.datavines.core.aop.RefreshToken;
 import io.datavines.core.constant.DataVinesConstants;
 import io.datavines.core.exception.DataVinesServerException;
+import io.datavines.server.api.dto.bo.job.JobBatchIdsRequest;
 import io.datavines.server.api.dto.bo.job.JobBatchImportResult;
+import io.datavines.server.api.dto.bo.job.JobBatchOperateResult;
 import io.datavines.server.api.dto.bo.job.JobCreate;
 import io.datavines.server.api.dto.bo.job.JobUpdate;
 import io.datavines.server.repository.entity.Job;
@@ -100,6 +102,18 @@ public class JobController {
     @PostMapping(value = "/execute/{id}")
     public Object executeJob(@PathVariable("id") Long jobId) throws DataVinesServerException {
         return jobService.execute(jobId, null);
+    }
+
+    @ApiOperation(value = "batch execute jobs", response = JobBatchOperateResult.class)
+    @PostMapping(value = "/batch/execute", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public Object batchExecute(@Valid @RequestBody JobBatchIdsRequest request) {
+        return jobService.batchExecute(request.getJobIds());
+    }
+
+    @ApiOperation(value = "batch delete jobs", response = JobBatchOperateResult.class)
+    @PostMapping(value = "/batch/delete", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public Object batchDelete(@Valid @RequestBody JobBatchIdsRequest request) {
+        return jobService.batchDelete(request.getJobIds());
     }
 
     @ApiOperation(value = "get job execute config")

@@ -24,6 +24,8 @@ import io.datavines.connector.api.ConnectorFactory;
 import io.datavines.connector.api.Dialect;
 import io.datavines.connector.api.TypeConverter;
 import io.datavines.connector.api.entity.JdbcOptions;
+import io.datavines.connector.api.entity.QueryColumn;
+import io.datavines.connector.api.entity.ResultListWithColumns;
 import io.datavines.connector.api.entity.StructField;
 import io.datavines.connector.api.utils.JdbcUtils;
 import io.datavines.engine.local.api.LocalRuntimeEnvironment;
@@ -36,6 +38,7 @@ import org.slf4j.Logger;
 
 import java.math.BigDecimal;
 import java.sql.*;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -89,6 +92,12 @@ public class ErrorDataSinkExecutor extends BaseDataSinkExecutor {
         String targetDatabase = config.getString(ERROR_DATA_OUTPUT_TO_DATASOURCE_DATABASE);
         String targetTable = config.getString(ERROR_DATA_FILE_NAME);
 
+        ResultListWithColumns cached = env.getInvalidateItems(sourceTable);
+        if (cached != null) {
+            log.warn("invalidate items only in memory, skip create-table-as-select to {}.{}", targetDatabase, targetTable);
+            return;
+        }
+
         Statement sourceConnectionStatement = null;
         ResultSet countResultSet = null;
         try {
@@ -136,37 +145,45 @@ public class ErrorDataSinkExecutor extends BaseDataSinkExecutor {
         PreparedStatement errorDataPreparedStatement = null;
 
         try {
-            sourceConnectionStatement = env.getSourceConnection().getConnection().createStatement();
-            env.setCurrentStatement(sourceConnectionStatement);
             String srcConnectorType = config.getString(SRC_CONNECTOR_TYPE);
             ConnectorFactory connectorFactory = PluginDiscovery.getMultiKeyPluginDiscovery(ConnectorFactory.class, ConnectorFactory::getPluginNames).getOrCreatePlugin(srcConnectorType);
             ConnectorFactory errorDataConnectorFactory = PluginDiscovery.getMultiKeyPluginDiscovery(ConnectorFactory.class, ConnectorFactory::getPluginNames).getOrCreatePlugin(config.getString(ERROR_DATA_CONNECTOR_TYPE));
-            int count = 0;
-            //执行统计行数语句
-            countResultSet = sourceConnectionStatement.executeQuery(connectorFactory.getDialect().getCountQuery(sourceTable));
-            if (countResultSet.next()) {
-                count = countResultSet.getInt(1);
-            }
-
-            if (count < 0) {
-                return;
-            }
-
-            count = Math.min(count, 10000);
-
             TypeConverter typeConverter = connectorFactory.getTypeConverter();
             Dialect dialect = connectorFactory.getDialect();
             Dialect errorDataConnectorDialect = errorDataConnectorFactory.getDialect();
+
+            ResultListWithColumns cached = env.getInvalidateItems(sourceTable);
+            int count;
+            List<StructField> columns;
+            if (cached != null) {
+                List<Map<String, Object>> cachedRows = cached.getResultList();
+                count = cachedRows == null ? 0 : cachedRows.size();
+                columns = toStructFields(cached.getColumns(), typeConverter);
+                log.info("sink error data from memory cache, table={}, count={}", sourceTable, count);
+            } else {
+                sourceConnectionStatement = env.getSourceConnection().getConnection().createStatement();
+                env.setCurrentStatement(sourceConnectionStatement);
+                count = 0;
+                countResultSet = sourceConnectionStatement.executeQuery(connectorFactory.getDialect().getCountQuery(sourceTable));
+                if (countResultSet.next()) {
+                    count = countResultSet.getInt(1);
+                }
+                columns = getTableSchema(sourceConnectionStatement, config, typeConverter);
+            }
+
+            if (count <= 0) {
+                return;
+            }
+
+            count = Math.min(count, 100000);
+
             String targetTableName = config.getString(ERROR_DATA_FILE_NAME);
-            List<StructField> columns = getTableSchema(sourceConnectionStatement, config, typeConverter);
             if (!checkTableExist(getConnectionHolder().getConnection(), targetTableName, errorDataConnectorDialect)) {
                 createTable(typeConverter, errorDataConnectorDialect, targetTableName, columns);
             }
-            //根据行数进行分页查询。分批写到文件里面
             int pageSize = 1000;
             int totalPage = count/pageSize + (count%pageSize>0 ? 1:0);
 
-            errorDataResultSet = sourceConnectionStatement.executeQuery(connectorFactory.getDialect().getSelectQuery(sourceTable));
             errorDataStorageConnection = getConnectionHolder().getConnection();
             String insertStatement = JdbcUtils.getInsertStatement(targetTableName, columns, errorDataConnectorDialect);
             if (StringUtils.isEmpty(insertStatement)) {
@@ -175,122 +192,38 @@ public class ErrorDataSinkExecutor extends BaseDataSinkExecutor {
 
             errorDataPreparedStatement = errorDataStorageConnection.prepareStatement(insertStatement);
             env.setCurrentStatement(errorDataPreparedStatement);
-            for (int i=0; i<totalPage; i++) {
-                int start = i * pageSize;
-                int end = (i+1) * pageSize;
-                ResultList resultList = dialect.getPageFromResultSet(sourceConnectionStatement, errorDataResultSet, sourceTable, start, end);
 
-                for (Map<String, Object> row: resultList.getResultList()) {
-                    for (int j=0; j<columns.size(); j++) {
-                        StructField field = columns.get(j);
-                        String value = String.valueOf(row.get(field.getName().toLowerCase()));
-                        String rowContent = "null".equalsIgnoreCase(value) ? null : value;
-                        if (rowContent != null) {
-                            rowContent = rowContent.replaceAll("\"","");
-                        }
-                        DataType dataType = field.getDataType();
+            if (cached != null) {
+                List<Map<String, Object>> rows = cached.getResultList();
+                for (int i = 0; i < totalPage; i++) {
+                    int start = i * pageSize;
+                    int end = Math.min((i + 1) * pageSize, count);
+                    for (Map<String, Object> row : rows.subList(start, end)) {
+                        bindErrorDataRow(errorDataPreparedStatement, columns, row);
                         try {
-                            switch (dataType) {
-                                case NULL_TYPE:
-                                    errorDataPreparedStatement.setNull(j+1, 0);
-                                    break;
-                                case BOOLEAN_TYPE:
-                                    errorDataPreparedStatement.setBoolean(j+1, Boolean.parseBoolean(rowContent));
-                                    break;
-                                case BYTE_TYPE:
-                                    if (StringUtils.isNotEmpty(rowContent)) {
-                                        errorDataPreparedStatement.setByte(j+1, Byte.parseByte("true".equals(rowContent) ? "1" : "false".equals(rowContent) ? "0" : rowContent));
-                                    } else {
-                                        errorDataPreparedStatement.setNull(j+1, Types.TINYINT);
-                                    }
-                                    break;
-                                case SHORT_TYPE:
-                                    if (StringUtils.isNotEmpty(rowContent)) {
-                                        errorDataPreparedStatement.setShort(j+1, Short.parseShort(rowContent));
-                                    } else {
-                                        errorDataPreparedStatement.setNull(j+1, Types.SMALLINT);
-                                    }
-                                    break;
-                                case INT_TYPE :
-                                    if (StringUtils.isNotEmpty(rowContent)) {
-                                        errorDataPreparedStatement.setInt(j+1, Integer.parseInt(rowContent));
-                                    } else {
-                                        errorDataPreparedStatement.setNull(j+1, Types.INTEGER);
-                                    }
-                                    break;
-                                case LONG_TYPE:
-                                    if (StringUtils.isNotEmpty(rowContent)) {
-                                        errorDataPreparedStatement.setLong(j+1, Long.parseLong(rowContent));
-                                    } else {
-                                        errorDataPreparedStatement.setNull(j+1, Types.BIGINT);
-                                    }
-                                    break;
-                                case FLOAT_TYPE:
-                                    if (StringUtils.isNotEmpty(rowContent)) {
-                                        errorDataPreparedStatement.setFloat(j+1, Float.parseFloat(rowContent));
-                                    } else {
-                                        errorDataPreparedStatement.setNull(j+1, Types.FLOAT);
-                                    }
-                                    break;
-                                case DOUBLE_TYPE:
-                                    if (StringUtils.isNotEmpty(rowContent)) {
-                                        errorDataPreparedStatement.setDouble(j+1, Double.parseDouble(rowContent));
-                                    } else {
-                                        errorDataPreparedStatement.setNull(j+1, Types.DOUBLE);
-                                    }
-                                    break;
-                                case TIME_TYPE:
-                                    if (StringUtils.isNotEmpty(rowContent)) {
-                                        errorDataPreparedStatement.setString(j+1, rowContent);
-                                    } else {
-                                        errorDataPreparedStatement.setNull(j+1, Types.TIME);
-                                    }
-                                case DATE_TYPE:
-                                    if (StringUtils.isNotEmpty(rowContent)) {
-                                        errorDataPreparedStatement.setString(j+1, rowContent);
-                                    } else {
-                                        errorDataPreparedStatement.setNull(j+1, Types.DATE);
-                                    }
-                                case TIMESTAMP_TYPE:
-                                    if (StringUtils.isNotEmpty(rowContent)) {
-                                        errorDataPreparedStatement.setString(j+1, rowContent);
-                                    } else {
-                                        errorDataPreparedStatement.setNull(j+1, Types.TIMESTAMP);
-                                    }
-                                    break;
-                                case STRING_TYPE :
-                                    errorDataPreparedStatement.setString(j+1, rowContent);
-                                    break;
-                                case BYTES_TYPE:
-                                    errorDataPreparedStatement.setBytes(j+1, String.valueOf(rowContent).getBytes());
-                                    break;
-                                case BIG_DECIMAL_TYPE:
-                                    if (StringUtils.isNotEmpty(rowContent)) {
-                                        errorDataPreparedStatement.setBigDecimal(j+1, new BigDecimal(rowContent));
-                                    } else {
-                                        errorDataPreparedStatement.setNull(j+1, Types.DECIMAL);
-                                    }
-                                    break;
-                                case OBJECT:
-                                    if (StringUtils.isNotEmpty(rowContent)) {
-                                        errorDataPreparedStatement.setObject(j+1, rowContent);
-                                    } else {
-                                        errorDataPreparedStatement.setNull(j+1, Types.JAVA_OBJECT);
-                                    }
-                                    break;
-                                default:
-                                    break;
-                            }
-                        } catch (SQLException exception) {
-                            log.error("transform data type error", exception);
+                            errorDataPreparedStatement.addBatch();
+                        } catch (SQLException e) {
+                            log.error("insert data error", e);
                         }
+                        errorDataPreparedStatement.executeBatch();
                     }
-                    try {
-                        errorDataPreparedStatement.addBatch();
-                    } catch (SQLException e) {
-                        log.error("insert data error", e);
+                }
+            } else {
+                errorDataResultSet = sourceConnectionStatement.executeQuery(connectorFactory.getDialect().getSelectQuery(sourceTable));
+                for (int i=0; i<totalPage; i++) {
+                    int start = i * pageSize;
+                    int end = (i+1) * pageSize;
+                    ResultList resultList = dialect.getPageFromResultSet(sourceConnectionStatement, errorDataResultSet, sourceTable, start, end);
+
+                    for (Map<String, Object> row: resultList.getResultList()) {
+                        bindErrorDataRow(errorDataPreparedStatement, columns, row);
+                        try {
+                            errorDataPreparedStatement.addBatch();
+                        } catch (SQLException e) {
+                            log.error("insert data error", e);
+                        }
+                        errorDataPreparedStatement.executeBatch();
                     }
-                    errorDataPreparedStatement.executeBatch();
                 }
             }
             log.info("sink error data finished");
@@ -307,6 +240,131 @@ public class ErrorDataSinkExecutor extends BaseDataSinkExecutor {
             env.setCurrentStatement(null);
         }
 
+    }
+
+    private List<StructField> toStructFields(List<QueryColumn> queryColumns, TypeConverter typeConverter) {
+        List<StructField> fields = new ArrayList<>();
+        if (queryColumns == null) {
+            return fields;
+        }
+        for (QueryColumn col : queryColumns) {
+            StructField field = new StructField();
+            field.setName(col.getName());
+            field.setDataType(typeConverter.convert(col.getType()));
+            field.setNullable(true);
+            field.setComment(col.getComment());
+            fields.add(field);
+        }
+        return fields;
+    }
+
+    private void bindErrorDataRow(PreparedStatement errorDataPreparedStatement,
+                                  List<StructField> columns,
+                                  Map<String, Object> row) {
+        for (int j = 0; j < columns.size(); j++) {
+            StructField field = columns.get(j);
+            String value = String.valueOf(row.get(field.getName().toLowerCase()));
+            String rowContent = "null".equalsIgnoreCase(value) ? null : value;
+            if (rowContent != null) {
+                rowContent = rowContent.replaceAll("\"", "");
+            }
+            DataType dataType = field.getDataType();
+            try {
+                switch (dataType) {
+                    case NULL_TYPE:
+                        errorDataPreparedStatement.setNull(j + 1, 0);
+                        break;
+                    case BOOLEAN_TYPE:
+                        errorDataPreparedStatement.setBoolean(j + 1, Boolean.parseBoolean(rowContent));
+                        break;
+                    case BYTE_TYPE:
+                        if (StringUtils.isNotEmpty(rowContent)) {
+                            errorDataPreparedStatement.setByte(j + 1, Byte.parseByte("true".equals(rowContent) ? "1" : "false".equals(rowContent) ? "0" : rowContent));
+                        } else {
+                            errorDataPreparedStatement.setNull(j + 1, Types.TINYINT);
+                        }
+                        break;
+                    case SHORT_TYPE:
+                        if (StringUtils.isNotEmpty(rowContent)) {
+                            errorDataPreparedStatement.setShort(j + 1, Short.parseShort(rowContent));
+                        } else {
+                            errorDataPreparedStatement.setNull(j + 1, Types.SMALLINT);
+                        }
+                        break;
+                    case INT_TYPE:
+                        if (StringUtils.isNotEmpty(rowContent)) {
+                            errorDataPreparedStatement.setInt(j + 1, Integer.parseInt(rowContent));
+                        } else {
+                            errorDataPreparedStatement.setNull(j + 1, Types.INTEGER);
+                        }
+                        break;
+                    case LONG_TYPE:
+                        if (StringUtils.isNotEmpty(rowContent)) {
+                            errorDataPreparedStatement.setLong(j + 1, Long.parseLong(rowContent));
+                        } else {
+                            errorDataPreparedStatement.setNull(j + 1, Types.BIGINT);
+                        }
+                        break;
+                    case FLOAT_TYPE:
+                        if (StringUtils.isNotEmpty(rowContent)) {
+                            errorDataPreparedStatement.setFloat(j + 1, Float.parseFloat(rowContent));
+                        } else {
+                            errorDataPreparedStatement.setNull(j + 1, Types.FLOAT);
+                        }
+                        break;
+                    case DOUBLE_TYPE:
+                        if (StringUtils.isNotEmpty(rowContent)) {
+                            errorDataPreparedStatement.setDouble(j + 1, Double.parseDouble(rowContent));
+                        } else {
+                            errorDataPreparedStatement.setNull(j + 1, Types.DOUBLE);
+                        }
+                        break;
+                    case TIME_TYPE:
+                        if (StringUtils.isNotEmpty(rowContent)) {
+                            errorDataPreparedStatement.setString(j + 1, rowContent);
+                        } else {
+                            errorDataPreparedStatement.setNull(j + 1, Types.TIME);
+                        }
+                    case DATE_TYPE:
+                        if (StringUtils.isNotEmpty(rowContent)) {
+                            errorDataPreparedStatement.setString(j + 1, rowContent);
+                        } else {
+                            errorDataPreparedStatement.setNull(j + 1, Types.DATE);
+                        }
+                    case TIMESTAMP_TYPE:
+                        if (StringUtils.isNotEmpty(rowContent)) {
+                            errorDataPreparedStatement.setString(j + 1, rowContent);
+                        } else {
+                            errorDataPreparedStatement.setNull(j + 1, Types.TIMESTAMP);
+                        }
+                        break;
+                    case STRING_TYPE:
+                        errorDataPreparedStatement.setString(j + 1, rowContent);
+                        break;
+                    case BYTES_TYPE:
+                        errorDataPreparedStatement.setBytes(j + 1, String.valueOf(rowContent).getBytes());
+                        break;
+                    case BIG_DECIMAL_TYPE:
+                        if (StringUtils.isNotEmpty(rowContent)) {
+                            errorDataPreparedStatement.setBigDecimal(j + 1, new BigDecimal(rowContent));
+                        } else {
+                            errorDataPreparedStatement.setNull(j + 1, Types.DECIMAL);
+                        }
+                        break;
+                    case OBJECT:
+                        if (StringUtils.isNotEmpty(rowContent)) {
+                            errorDataPreparedStatement.setObject(j + 1, rowContent);
+                        } else {
+                            errorDataPreparedStatement.setNull(j + 1, Types.JAVA_OBJECT);
+                        }
+                        break;
+                    default:
+                        break;
+                }
+            } catch (SQLException exception) {
+                log.error("transform data type error", exception);
+            }
+        }
     }
 
     private boolean checkTableExist(Connection connection, String tableName, Dialect dialect) throws SQLException {

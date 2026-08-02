@@ -56,15 +56,15 @@ const IndexInner = ({
         }
     });
 
-    const downloadTemplate = async (type: 'xlsx' | 'csv') => {
+    const downloadTemplate = async () => {
         try {
-            const blob: Blob = await $http.get(`/job/batch-import/template.${type}`, {}, {
+            const blob: Blob = await $http.get('/job/batch-import/template.xlsx', {}, {
                 responseType: 'blob',
             });
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = `job_batch_import_template.${type}`;
+            a.download = 'job_batch_import_template.xlsx';
             a.click();
             window.URL.revokeObjectURL(url);
         } catch (e) {
@@ -138,7 +138,7 @@ const IndexInner = ({
                 <Upload
                     beforeUpload={() => false}
                     maxCount={1}
-                    accept=".xlsx,.xls,.csv,.json,.txt"
+                    accept=".xlsx,.xls"
                     fileList={fileList}
                     onChange={({ fileList: fl }) => setFileList(fl)}
                 >
@@ -146,11 +146,8 @@ const IndexInner = ({
                 </Upload>
             </Form.Item>
             <Space style={{ marginBottom: 16 }}>
-                <Button icon={<DownloadOutlined />} onClick={() => downloadTemplate('xlsx')}>
+                <Button icon={<DownloadOutlined />} onClick={() => downloadTemplate()}>
                     {intl.formatMessage({ id: 'jobs_batch_import_tpl_xlsx' })}
-                </Button>
-                <Button icon={<DownloadOutlined />} onClick={() => downloadTemplate('csv')}>
-                    {intl.formatMessage({ id: 'jobs_batch_import_tpl_csv' })}
                 </Button>
             </Space>
             <div style={{ textAlign: 'right' }}>

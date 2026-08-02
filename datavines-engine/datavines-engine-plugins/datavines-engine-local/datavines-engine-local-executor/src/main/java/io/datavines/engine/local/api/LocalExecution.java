@@ -119,6 +119,9 @@ public class LocalExecution implements Execution<LocalSource, LocalTransform, Lo
                     break;
                 }
                 switch (TransformType.of(localTransform.getConfig().getString(PLUGIN_TYPE))){
+                    case INVALIDATE_ITEMS:
+                        localTransform.process(localRuntimeEnvironment);
+                        break;
                     case ACTUAL_VALUE:
                         ResultList actualValueResult = localTransform.process(localRuntimeEnvironment);
                         actualValue.add(actualValueResult);

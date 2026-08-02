@@ -27,6 +27,8 @@ import io.datavines.common.entity.SparkEngineParameter;
 import io.datavines.common.entity.job.BaseJobParameter;
 import io.datavines.common.enums.DataVinesDataType;
 import io.datavines.common.enums.EntityRelType;
+import io.datavines.common.enums.JobType;
+import io.datavines.server.repository.entity.JobExecution;
 import io.datavines.common.utils.CommonPropertyUtils;
 import io.datavines.common.utils.DateUtils;
 import io.datavines.common.utils.JSONUtils;
@@ -135,10 +137,22 @@ public class CatalogEntityInstanceServiceImpl
 
     @Override
     public CatalogEntityInstance getByDataSourceAndFQN(Long dataSourceId, String fqn) {
-        return baseMapper.selectOne(new QueryWrapper<CatalogEntityInstance>().lambda()
+        if (dataSourceId == null || StringUtils.isEmpty(fqn)) {
+            return null;
+        }
+        // Kingbase/PG catalog stores unquoted identifiers lowercased; job params often keep original case.
+        CatalogEntityInstance exact = baseMapper.selectOne(new QueryWrapper<CatalogEntityInstance>().lambda()
                 .eq(CatalogEntityInstance::getDatasourceId, dataSourceId)
                 .eq(CatalogEntityInstance::getFullyQualifiedName, fqn)
-                .eq(CatalogEntityInstance::getStatus,CommonConstants.CATALOG_ENTITY_INSTANCE_STATUS_ACTIVE));
+                .eq(CatalogEntityInstance::getStatus, CommonConstants.CATALOG_ENTITY_INSTANCE_STATUS_ACTIVE));
+        if (exact != null) {
+            return exact;
+        }
+        return baseMapper.selectOne(new QueryWrapper<CatalogEntityInstance>()
+                .eq("datasource_id", dataSourceId)
+                .eq("status", CommonConstants.CATALOG_ENTITY_INSTANCE_STATUS_ACTIVE)
+                .apply("LOWER(fully_qualified_name) = LOWER({0})", fqn)
+                .last("LIMIT 1"));
     }
 
     @Override
@@ -373,8 +387,13 @@ public class CatalogEntityInstanceServiceImpl
         detail.setUpdateTime(commonTaskService.getRefreshTime(databaseInstance.getDatasourceId(), databaseInstance.getDisplayName(),null));
         List<CatalogEntityInstance> tableList = getCatalogEntityInstances(uuid);
         detail.setTables((long)(CollectionUtils.isEmpty(tableList)? 0 : tableList.size()));
-        detail.setMetrics(getEntityMetricCount(uuid));
-        detail.setTags(getEntityTagCount(uuid));
+        // Aggregate from child tables: jobs/tags are linked on table/column entities, not the database uuid.
+        List<String> tableUuids = CollectionUtils.isEmpty(tableList)
+                ? Collections.emptyList()
+                : tableList.stream().map(CatalogEntityInstance::getUuid).filter(Objects::nonNull).collect(Collectors.toList());
+        detail.setMetrics(countDistinctMetricJobs(tableUuids));
+        detail.setTags(countDistinctTags(tableUuids));
+        detail.setUsages(countJobExecutions(tableUuids));
 
         return detail;
     }
@@ -406,6 +425,7 @@ public class CatalogEntityInstanceServiceImpl
         detail.setComment(instance.getDescription());
         detail.setTags(getEntityTagCount(uuid));
         detail.setMetrics(getEntityMetricCount(uuid));
+        detail.setUsages(countJobExecutions(Collections.singletonList(uuid)));
 
         return detail;
     }
@@ -1042,6 +1062,49 @@ public class CatalogEntityInstanceServiceImpl
 
     private long getEntityMetricCount(String uuid) {
         return catalogEntityMetricJobRelService.count(new QueryWrapper<CatalogEntityMetricJobRel>().lambda().eq(CatalogEntityMetricJobRel::getEntityUuid, uuid));
+    }
+
+    private long countDistinctMetricJobs(List<String> entityUuids) {
+        if (CollectionUtils.isEmpty(entityUuids)) {
+            return 0L;
+        }
+        List<CatalogEntityMetricJobRel> rels = catalogEntityMetricJobRelService.list(new QueryWrapper<CatalogEntityMetricJobRel>().lambda()
+                .in(CatalogEntityMetricJobRel::getEntityUuid, entityUuids)
+                .eq(CatalogEntityMetricJobRel::getMetricJobType, JobType.DATA_QUALITY.getDescription()));
+        if (CollectionUtils.isEmpty(rels)) {
+            return 0L;
+        }
+        return rels.stream().map(CatalogEntityMetricJobRel::getMetricJobId).filter(Objects::nonNull).distinct().count();
+    }
+
+    private long countDistinctTags(List<String> entityUuids) {
+        if (CollectionUtils.isEmpty(entityUuids)) {
+            return 0L;
+        }
+        List<CatalogEntityTagRel> tagRels = catalogEntityTagRelService.list(new QueryWrapper<CatalogEntityTagRel>().lambda()
+                .in(CatalogEntityTagRel::getEntityUuid, entityUuids));
+        if (CollectionUtils.isEmpty(tagRels)) {
+            return 0L;
+        }
+        return tagRels.stream().map(CatalogEntityTagRel::getTagUuid).filter(Objects::nonNull).distinct().count();
+    }
+
+    private long countJobExecutions(List<String> entityUuids) {
+        if (CollectionUtils.isEmpty(entityUuids)) {
+            return 0L;
+        }
+        List<CatalogEntityMetricJobRel> rels = catalogEntityMetricJobRelService.list(new QueryWrapper<CatalogEntityMetricJobRel>().lambda()
+                .in(CatalogEntityMetricJobRel::getEntityUuid, entityUuids)
+                .eq(CatalogEntityMetricJobRel::getMetricJobType, JobType.DATA_QUALITY.getDescription())
+                .select(CatalogEntityMetricJobRel::getMetricJobId));
+        if (CollectionUtils.isEmpty(rels)) {
+            return 0L;
+        }
+        Set<Long> jobIds = rels.stream().map(CatalogEntityMetricJobRel::getMetricJobId).filter(Objects::nonNull).collect(Collectors.toSet());
+        if (jobIds.isEmpty()) {
+            return 0L;
+        }
+        return jobExecutionService.count(new QueryWrapper<JobExecution>().lambda().in(JobExecution::getJobId, jobIds));
     }
 
     private CatalogEntityInstance getParentEntity(String uuid) {

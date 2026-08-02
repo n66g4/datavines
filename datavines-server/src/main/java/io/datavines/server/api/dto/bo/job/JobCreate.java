@@ -75,4 +75,10 @@ public class JobCreate {
 
     private String jobName;
 
+    /** Business rule id for display; optional; not unique. */
+    private String ruleId;
+
+    /** Business tag name; optional. */
+    private String tagName;
+
 }

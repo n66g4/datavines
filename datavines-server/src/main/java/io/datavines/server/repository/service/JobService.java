@@ -21,6 +21,7 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.baomidou.mybatisplus.extension.service.IService;
 import io.datavines.core.exception.DataVinesServerException;
 import io.datavines.server.api.dto.bo.job.DataProfileJobCreateOrUpdate;
+import io.datavines.server.api.dto.bo.job.JobBatchOperateResult;
 import io.datavines.server.api.dto.bo.job.JobCreate;
 import io.datavines.server.api.dto.bo.job.JobUpdate;
 import io.datavines.server.api.dto.vo.JobVO;
@@ -57,6 +58,10 @@ public interface JobService extends IService<Job> {
                             Integer pageSize);
 
     Long execute(Long jobId, LocalDateTime scheduleTime) throws DataVinesServerException;
+
+    JobBatchOperateResult batchExecute(List<Long> jobIds);
+
+    JobBatchOperateResult batchDelete(List<Long> jobIds);
 
     String getJobExecutionConfig(Long jobId, LocalDateTime scheduleTime) throws DataVinesServerException;
 

@@ -18,6 +18,7 @@ package io.datavines.engine.local.api;
 
 import io.datavines.common.config.CheckResult;
 import io.datavines.common.config.Config;
+import io.datavines.connector.api.entity.ResultListWithColumns;
 import io.datavines.engine.api.env.Execution;
 import io.datavines.engine.api.env.RuntimeEnvironment;
 import io.datavines.engine.local.api.entity.ConnectionHolder;
@@ -27,6 +28,8 @@ import lombok.Setter;
 import org.slf4j.Logger;
 
 import java.sql.Statement;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 public class LocalRuntimeEnvironment implements RuntimeEnvironment {
 
@@ -49,6 +52,22 @@ public class LocalRuntimeEnvironment implements RuntimeEnvironment {
 
     @Getter
     private boolean stop;
+
+    /** In-memory snapshot of invalidate items (key = invalidate_items_xxx). */
+    private final Map<String, ResultListWithColumns> invalidateItemsCache = new ConcurrentHashMap<>();
+
+    public void putInvalidateItems(String tableKey, ResultListWithColumns data) {
+        if (tableKey != null && data != null) {
+            invalidateItemsCache.put(tableKey, data);
+        }
+    }
+
+    public ResultListWithColumns getInvalidateItems(String tableKey) {
+        if (tableKey == null) {
+            return null;
+        }
+        return invalidateItemsCache.get(tableKey);
+    }
 
     @Override
     public void prepare() {
@@ -92,6 +111,7 @@ public class LocalRuntimeEnvironment implements RuntimeEnvironment {
             metadataConnection.close();
         }
 
+        invalidateItemsCache.clear();
         stop = true;
     }
 

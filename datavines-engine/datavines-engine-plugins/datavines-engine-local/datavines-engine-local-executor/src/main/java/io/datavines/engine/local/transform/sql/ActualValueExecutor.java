@@ -17,8 +17,10 @@
 package io.datavines.engine.local.transform.sql;
 
 import io.datavines.common.config.Config;
+import io.datavines.common.utils.StringUtils;
 import io.datavines.engine.local.api.LocalRuntimeEnvironment;
 import io.datavines.connector.api.entity.ResultList;
+import io.datavines.connector.api.entity.ResultListWithColumns;
 import io.datavines.connector.api.utils.SqlUtils;
 import org.apache.commons.collections4.CollectionUtils;
 
@@ -26,14 +28,37 @@ import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.Statement;
 import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import static io.datavines.common.ConfigConstants.*;
 
 public class ActualValueExecutor implements ITransformExecutor {
 
+    private static final Pattern AS_ALIAS = Pattern.compile("(?i)\\bas\\s+(\\w+)");
+
     @Override
     public ResultList execute(Connection connection, Config config, LocalRuntimeEnvironment env) throws Exception {
+
+        String invalidateTable = config.getString(INVALIDATE_ITEMS_TABLE);
+        ResultListWithColumns cached = env.getInvalidateItems(invalidateTable);
+        if (cached != null) {
+            String sql = config.getString(SQL);
+            String key = "actual_value";
+            if (StringUtils.isNotEmpty(sql)) {
+                Matcher matcher = AS_ALIAS.matcher(sql);
+                if (matcher.find()) {
+                    key = matcher.group(1).toLowerCase();
+                }
+            }
+            int count = CollectionUtils.isEmpty(cached.getResultList()) ? 0 : cached.getResultList().size();
+            Map<String, Object> dataMap = new HashMap<>();
+            dataMap.put(key, String.valueOf(count));
+            ResultList resultList = new ResultList();
+            resultList.setResultList(Collections.singletonList(dataMap));
+            return resultList;
+        }
 
         Statement statement = null;
         ResultSet resultSet = null;

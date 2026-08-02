@@ -22,10 +22,22 @@ import io.datavines.connector.api.entity.QueryColumn;
 import io.datavines.connector.api.entity.ResultList;
 import io.datavines.connector.api.entity.ResultListWithColumns;
 import lombok.extern.slf4j.Slf4j;
+import net.sf.jsqlparser.expression.Expression;
+import net.sf.jsqlparser.expression.ExpressionVisitorAdapter;
+import net.sf.jsqlparser.parser.CCJSqlParserUtil;
+import net.sf.jsqlparser.schema.Column;
+import net.sf.jsqlparser.schema.Table;
+import net.sf.jsqlparser.statement.select.FromItem;
+import net.sf.jsqlparser.statement.select.PlainSelect;
+import net.sf.jsqlparser.statement.select.Select;
 import net.sf.jsqlparser.util.TablesNamesFinder;
 import org.apache.commons.collections4.CollectionUtils;
 
-import java.sql.*;
+import java.sql.Connection;
+import java.sql.ResultSet;
+import java.sql.ResultSetMetaData;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.*;
 
 import static org.apache.commons.lang3.StringUtils.EMPTY;
@@ -83,28 +95,27 @@ public class SqlUtils {
         return result;
     }
 
+    /**
+     * Read next {@code (end - start)} rows from a ResultSet that is consumed sequentially.
+     * Does NOT call {@link ResultSet#absolute} — many JDBC drivers (and local engine) use
+     * TYPE_FORWARD_ONLY cursors where absolute() fails and previously swallowed the error,
+     * so only the first page (~1000 rows) was ever written to error CSV.
+     */
     private static List<Map<String, Object>> getPage(ResultSet rs, int start, int end, ResultSetMetaData metaData) {
 
         List<Map<String, Object>> resultList = new ArrayList<>();
-
+        if (end <= start) {
+            return resultList;
+        }
+        int limit = end - start;
         try {
-            if (start > 0) {
-                rs.absolute(start);
-            }
-            int current = start;
-            while (rs.next()) {
-                if (current >= start && current < end ){
-                    resultList.add(getResultObjectMap(rs, metaData));
-                    if (current == end-1){
-                        break;
-                    }
-                    current++;
-                } else {
-                    break;
-                }
+            int fetched = 0;
+            while (fetched < limit && rs.next()) {
+                resultList.add(getResultObjectMap(rs, metaData));
+                fetched++;
             }
         } catch (Throwable e) {
-            log.error("get result set error: {0}", e);
+            log.error("get result set error", e);
         }
 
         return resultList;
@@ -218,5 +229,118 @@ public class SqlUtils {
             throw new DataVinesException("extract tables from select error", e);
         }
         return tables;
+    }
+
+    /**
+     * Best-effort: main table of the outermost SELECT's FROM clause (not JOIN tables).
+     * Schema/quotes stripped. Returns null on failure.
+     * <p>
+     * Note: {@link TablesNamesFinder} order is not FROM-first (JOIN tables may come first),
+     * so JOIN lookup/code tables must not be treated as the primary table.
+     */
+    public static String extractPrimaryTableName(String sql) {
+        if (StringUtils.isEmpty(sql)) {
+            return null;
+        }
+        try {
+            net.sf.jsqlparser.statement.Statement parsed = CCJSqlParserUtil.parse(sql);
+            if (parsed instanceof Select) {
+                PlainSelect plainSelect = ((Select) parsed).getPlainSelect();
+                if (plainSelect != null) {
+                    FromItem fromItem = plainSelect.getFromItem();
+                    if (fromItem instanceof Table) {
+                        return stripSchemaAndQuotes(((Table) fromItem).getFullyQualifiedName());
+                    }
+                }
+            }
+            // Fallback only when FROM is not a plain table (subquery etc.)
+            List<String> tables = new ArrayList<>(TablesNamesFinder.findTables(sql));
+            if (CollectionUtils.isEmpty(tables)) {
+                return null;
+            }
+            return stripSchemaAndQuotes(tables.get(0));
+        } catch (Exception e) {
+            log.warn("extract primary table from sql failed: {}", e.getMessage());
+            return null;
+        }
+    }
+
+    /** Common status/filter columns that should not be treated as the metric column. */
+    private static final Set<String> FILTER_COLUMN_NAMES = new HashSet<>(Arrays.asList(
+            "DATA_STATE", "DELETE_FLAG", "IS_DELETE", "DEL_FLAG"
+    ));
+
+    /**
+     * Best-effort primary column from WHERE.
+     * Real quality SQL often has business_col + DATA_STATE filters; prefer the first
+     * non-filter column in appearance order, else the first column.
+     */
+    public static String extractSingleColumnFromWhere(String sql) {
+        if (StringUtils.isEmpty(sql)) {
+            return null;
+        }
+        try {
+            net.sf.jsqlparser.statement.Statement parsed = CCJSqlParserUtil.parse(sql);
+            if (!(parsed instanceof Select)) {
+                return null;
+            }
+            Select select = (Select) parsed;
+            PlainSelect plainSelect = select.getPlainSelect();
+            if (plainSelect == null) {
+                return null;
+            }
+            Expression where = plainSelect.getWhere();
+            if (where == null) {
+                return null;
+            }
+            List<String> columns = new ArrayList<>();
+            where.accept(new ExpressionVisitorAdapter() {
+                @Override
+                public void visit(Column column) {
+                    String name = stripSchemaAndQuotes(column.getColumnName());
+                    if (StringUtils.isNotEmpty(name) && !columns.contains(name)) {
+                        columns.add(name);
+                    }
+                }
+            });
+            if (columns.isEmpty()) {
+                return null;
+            }
+            for (String name : columns) {
+                if (!isFilterColumn(name)) {
+                    return name;
+                }
+            }
+            return columns.get(0);
+        } catch (Exception e) {
+            log.warn("extract column from where failed: {}", e.getMessage());
+            return null;
+        }
+    }
+
+    private static boolean isFilterColumn(String name) {
+        return StringUtils.isNotEmpty(name)
+                && FILTER_COLUMN_NAMES.contains(name.toUpperCase(Locale.ROOT));
+    }
+
+    private static String stripSchemaAndQuotes(String name) {
+        if (StringUtils.isEmpty(name)) {
+            return null;
+        }
+        String value = name.trim();
+        int dot = value.lastIndexOf('.');
+        if (dot >= 0 && dot < value.length() - 1) {
+            value = value.substring(dot + 1);
+        }
+        if (value.length() >= 2) {
+            char first = value.charAt(0);
+            char last = value.charAt(value.length() - 1);
+            if ((first == '`' && last == '`')
+                    || (first == '"' && last == '"')
+                    || (first == '[' && last == ']')) {
+                value = value.substring(1, value.length() - 1);
+            }
+        }
+        return StringUtils.isEmpty(value) ? null : value;
     }
 }

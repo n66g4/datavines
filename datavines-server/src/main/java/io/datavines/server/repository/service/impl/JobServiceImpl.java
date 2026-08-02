@@ -46,6 +46,7 @@ import io.datavines.metric.api.MetricType;
 import io.datavines.metric.api.ResultFormula;
 import io.datavines.metric.api.SqlMetric;
 import io.datavines.server.api.dto.bo.job.DataProfileJobCreateOrUpdate;
+import io.datavines.server.api.dto.bo.job.JobBatchOperateResult;
 import io.datavines.server.api.dto.bo.job.JobCreate;
 import io.datavines.server.api.dto.bo.job.JobUpdate;
 import io.datavines.server.api.dto.vo.JobExecutionStat;
@@ -76,8 +77,11 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import static io.datavines.common.CommonConstants.LOCAL;
 import static io.datavines.common.CommonConstants.TABLE;
@@ -150,6 +154,9 @@ public class JobServiceImpl extends ServiceImpl<JobMapper, Job> implements JobSe
         List<BaseJobParameter> jobParameters = JSONUtils.toList(parameter, BaseJobParameter.class);
         jobParameters = JobParameterUtils.regenerateJobParameterList(jobParameters);
         checkDuplicateMetricInJob(jobParameters);
+        for (BaseJobParameter jobParameter : jobParameters) {
+            fillCustomSqlMetricParameter(jobParameter);
+        }
         isMetricSuitable(jobCreate.getDataSourceId(), jobCreate.getDataSourceId2(), jobCreate.getEngineType(), jobParameters);
         List<String> fqnList = setJobAttribute(job, jobParameters);
 
@@ -220,6 +227,10 @@ public class JobServiceImpl extends ServiceImpl<JobMapper, Job> implements JobSe
         BeanUtils.copyProperties(jobUpdate, job);
         List<BaseJobParameter> jobParameters = JSONUtils.toList(jobUpdate.getParameter(), BaseJobParameter.class);
         checkDuplicateMetricInJob(jobParameters);
+        // fill from SQL before suitability check so FQN uses refreshed table/column
+        for (BaseJobParameter parameter : jobParameters) {
+            fillCustomSqlMetricParameter(parameter);
+        }
         isMetricSuitable(jobUpdate.getDataSourceId(), jobUpdate.getDataSourceId2(), jobUpdate.getEngineType(), jobParameters);
         List<String> fqnList = setJobAttribute(job, jobParameters);
         if (StringUtils.isEmpty(jobUpdate.getJobName())) {
@@ -258,25 +269,49 @@ public class JobServiceImpl extends ServiceImpl<JobMapper, Job> implements JobSe
                     .eq(CatalogEntityMetricJobRel::getMetricJobType, JobType.DATA_QUALITY.getDescription()));
         }
 
-        if (CollectionUtils.isNotEmpty(fqnList)) {
-            for (String fqn : fqnList) {
-                CatalogEntityInstance instance =
-                        catalogEntityInstanceService.getByDataSourceAndFQN(job.getDataSourceId(), fqn);
-                if (instance == null) {
-                    continue;
-                }
+        // Also link table entity so catalog table detail shows related jobs (UI queries by entity uuid only).
+        List<String> linkFqns = expandFqnsWithTable(fqnList);
+        Set<String> linkedUuids = new HashSet<>();
+        for (String fqn : linkFqns) {
+            CatalogEntityInstance instance =
+                    catalogEntityInstanceService.getByDataSourceAndFQN(job.getDataSourceId(), fqn);
+            if (instance == null || !linkedUuids.add(instance.getUuid())) {
+                continue;
+            }
 
-                CatalogEntityMetricJobRel entityMetricJobRel = new CatalogEntityMetricJobRel();
-                entityMetricJobRel.setEntityUuid(instance.getUuid());
-                entityMetricJobRel.setMetricJobId(job.getId());
-                entityMetricJobRel.setMetricJobType(JobType.DATA_QUALITY.getDescription());
-                entityMetricJobRel.setCreateBy(ContextHolder.getUserId());
-                entityMetricJobRel.setCreateTime(LocalDateTime.now());
-                entityMetricJobRel.setUpdateBy(ContextHolder.getUserId());
-                entityMetricJobRel.setUpdateTime(LocalDateTime.now());
-                catalogEntityMetricJobRelService.save(entityMetricJobRel);
+            CatalogEntityMetricJobRel entityMetricJobRel = new CatalogEntityMetricJobRel();
+            entityMetricJobRel.setEntityUuid(instance.getUuid());
+            entityMetricJobRel.setMetricJobId(job.getId());
+            entityMetricJobRel.setMetricJobType(JobType.DATA_QUALITY.getDescription());
+            entityMetricJobRel.setCreateBy(ContextHolder.getUserId());
+            entityMetricJobRel.setCreateTime(LocalDateTime.now());
+            entityMetricJobRel.setUpdateBy(ContextHolder.getUserId());
+            entityMetricJobRel.setUpdateTime(LocalDateTime.now());
+            catalogEntityMetricJobRelService.save(entityMetricJobRel);
+        }
+    }
+
+    /** For column FQN db.table.col, also include table FQN db.table. */
+    private List<String> expandFqnsWithTable(List<String> fqnList) {
+        List<String> result = new ArrayList<>();
+        if (CollectionUtils.isEmpty(fqnList)) {
+            return result;
+        }
+        LinkedHashSet<String> seen = new LinkedHashSet<>();
+        for (String fqn : fqnList) {
+            if (StringUtils.isEmpty(fqn) || !seen.add(fqn)) {
+                continue;
+            }
+            result.add(fqn);
+            String[] parts = fqn.split("\\.");
+            if (parts.length >= 3) {
+                String tableFqn = parts[0] + "." + parts[1];
+                if (seen.add(tableFqn)) {
+                    result.add(tableFqn);
+                }
             }
         }
+        return result;
     }
 
     @Override
@@ -417,15 +452,50 @@ public class JobServiceImpl extends ServiceImpl<JobMapper, Job> implements JobSe
     private List<String> setJobAttribute(Job job, List<BaseJobParameter> jobParameters) {
         List<String> fqnList = new ArrayList<>();
         if (CollectionUtils.isNotEmpty(jobParameters)) {
+            for (BaseJobParameter parameter : jobParameters) {
+                fillCustomSqlMetricParameter(parameter);
+            }
             BaseJobParameter jobParameter = jobParameters.get(0);
             job.setSchemaName((String)jobParameter.getMetricParameter().get(DATABASE));
             job.setTableName((String)jobParameter.getMetricParameter().get(TABLE));
             job.setColumnName((String)jobParameter.getMetricParameter().get(COLUMN));
             job.setMetricType(jobParameter.getMetricType());
+            job.setParameter(JSONUtils.toJsonString(jobParameters));
             fqnList.add(getFQN(jobParameter));
         }
 
         return fqnList;
+    }
+
+    /**
+     * For custom SQL metrics, table/column follow the SQL (source of truth).
+     * UI hides table/column for these metrics but still resubmits previously
+     * autofilled values on edit; always re-parse so updates refresh correctly.
+     */
+    private void fillCustomSqlMetricParameter(BaseJobParameter jobParameter) {
+        if (jobParameter == null || MapUtils.isEmpty(jobParameter.getMetricParameter())) {
+            return;
+        }
+        String metricType = jobParameter.getMetricType();
+        if (!"custom_count_sql".equals(metricType) && !"custom_aggregate_sql".equals(metricType)) {
+            return;
+        }
+        Map<String, Object> metricParameter = jobParameter.getMetricParameter();
+        String sqlKey = "custom_aggregate_sql".equals(metricType) ? ACTUAL_AGGREGATE_SQL : INVALIDATE_ITEMS_SQL;
+        Object sqlValue = metricParameter.get(sqlKey);
+        if (sqlValue == null || StringUtils.isEmpty(String.valueOf(sqlValue))) {
+            return;
+        }
+        String sql = String.valueOf(sqlValue);
+
+        String table = SqlUtils.extractPrimaryTableName(sql);
+        if (StringUtils.isNotEmpty(table)) {
+            metricParameter.put(TABLE, table);
+        }
+
+        String column = SqlUtils.extractSingleColumnFromWhere(sql);
+        // empty string clears stale column (MyBatis skips null on updateById)
+        metricParameter.put(COLUMN, StringUtils.isNotEmpty(column) ? column : "");
     }
 
     @Override
@@ -511,6 +581,48 @@ public class JobServiceImpl extends ServiceImpl<JobMapper, Job> implements JobSe
         }
 
         return executeJob(job, scheduleTime);
+    }
+
+    @Override
+    public JobBatchOperateResult batchExecute(List<Long> jobIds) {
+        JobBatchOperateResult result = new JobBatchOperateResult();
+        if (jobIds == null || jobIds.isEmpty()) {
+            return result;
+        }
+        for (Long jobId : jobIds) {
+            try {
+                execute(jobId, null);
+                result.getItems().add(JobBatchOperateResult.Item.ok(jobId));
+                result.setSuccessCount(result.getSuccessCount() + 1);
+            } catch (Exception e) {
+                result.getItems().add(JobBatchOperateResult.Item.fail(jobId, e.getMessage()));
+                result.setFailCount(result.getFailCount() + 1);
+            }
+        }
+        return result;
+    }
+
+    @Override
+    public JobBatchOperateResult batchDelete(List<Long> jobIds) {
+        JobBatchOperateResult result = new JobBatchOperateResult();
+        if (jobIds == null || jobIds.isEmpty()) {
+            return result;
+        }
+        for (Long jobId : jobIds) {
+            try {
+                if (deleteById(jobId) > 0) {
+                    result.getItems().add(JobBatchOperateResult.Item.ok(jobId));
+                    result.setSuccessCount(result.getSuccessCount() + 1);
+                } else {
+                    result.getItems().add(JobBatchOperateResult.Item.fail(jobId, "delete failed"));
+                    result.setFailCount(result.getFailCount() + 1);
+                }
+            } catch (Exception e) {
+                result.getItems().add(JobBatchOperateResult.Item.fail(jobId, e.getMessage()));
+                result.setFailCount(result.getFailCount() + 1);
+            }
+        }
+        return result;
     }
 
     @Override

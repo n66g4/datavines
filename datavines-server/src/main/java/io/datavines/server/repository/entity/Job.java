@@ -37,6 +37,14 @@ public class Job implements Serializable {
     @TableField(value = "name")
     private String name;
 
+    /** Business rule id for display; not unique; not used as import match key. */
+    @TableField(value = "rule_id", updateStrategy = FieldStrategy.IGNORED)
+    private String ruleId;
+
+    /** Business tag name (same as catalog tag name); one job one tag. */
+    @TableField(value = "tag_name", updateStrategy = FieldStrategy.IGNORED)
+    private String tagName;
+
     @TableField(value = "type")
     private JobType type;
 

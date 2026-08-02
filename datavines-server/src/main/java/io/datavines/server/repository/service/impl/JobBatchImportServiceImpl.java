@@ -192,6 +192,8 @@ public class JobBatchImportServiceImpl implements JobBatchImportService {
         create.setEngineType(engine);
         create.setParameter(JSONUtils.toJsonString(parameters));
         create.setJobName(jobName);
+        create.setRuleId(resolveRuleId(metrics));
+        create.setTagName(resolveTagName(metrics));
         create.setRunningNow(runNow);
         create.setIsErrorDataOutputToDataSource(false);
         if (errorDataStorageId != null) {
@@ -201,6 +203,30 @@ public class JobBatchImportServiceImpl implements JobBatchImportService {
         create.setRetryInterval(1000);
         create.setTimeout(36000);
         return create;
+    }
+
+    private String resolveTagName(List<RuleImportItem> metrics) {
+        if (CollectionUtils.isEmpty(metrics)) {
+            return null;
+        }
+        for (RuleImportItem item : metrics) {
+            if (item != null && StringUtils.isNotEmpty(item.getTagName())) {
+                return item.getTagName().trim();
+            }
+        }
+        return null;
+    }
+
+    private String resolveRuleId(List<RuleImportItem> metrics) {
+        if (CollectionUtils.isEmpty(metrics)) {
+            return null;
+        }
+        for (RuleImportItem item : metrics) {
+            if (item != null && StringUtils.isNotEmpty(item.getRuleId())) {
+                return item.getRuleId().trim();
+            }
+        }
+        return null;
     }
 
     private BaseJobParameter toParameter(RuleImportItem item) {
@@ -254,6 +280,8 @@ public class JobBatchImportServiceImpl implements JobBatchImportService {
         update.setIsErrorDataOutputToDataSource(create.getIsErrorDataOutputToDataSource());
         update.setRunningNow(0);
         update.setJobName(create.getJobName());
+        update.setRuleId(create.getRuleId());
+        update.setTagName(create.getTagName());
         return update;
     }
 

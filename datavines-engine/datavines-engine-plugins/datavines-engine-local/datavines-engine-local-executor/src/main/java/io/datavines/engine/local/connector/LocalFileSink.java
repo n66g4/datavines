@@ -120,41 +120,69 @@ public class LocalFileSink implements LocalSink {
     private void sinkErrorData(LocalRuntimeEnvironment env) throws SQLException{
         String columnSeparator = config.getString(COLUMN_SEPARATOR);
         String outputTable = config.getString(INVALIDATE_ITEMS_TABLE);
-        if (TRUE.equals(config.getString(INVALIDATE_ITEM_CAN_OUTPUT)) && !StringUtils.isEmptyOrNullStr(outputTable)) {
-            int count = 0;
-            //执行统计行数语句
-            Statement statement = env.getSourceConnection().getConnection().createStatement();
-            ResultSet countResultSet = statement.executeQuery("SELECT COUNT(1) FROM " + outputTable);
-            if (countResultSet.next()) {
-                count = countResultSet.getInt(1);
+        if (!TRUE.equals(config.getString(INVALIDATE_ITEM_CAN_OUTPUT)) || StringUtils.isEmptyOrNullStr(outputTable)) {
+            return;
+        }
+
+        String srcConnectorType = config.getString(SRC_CONNECTOR_TYPE);
+        TypeConverter typeConverter = PluginDiscovery.getMultiKeyPluginDiscovery(ConnectorFactory.class, ConnectorFactory::getPluginNames)
+                .getOrCreatePlugin(srcConnectorType).getTypeConverter();
+
+        ResultListWithColumns cached = env.getInvalidateItems(outputTable);
+        if (cached != null) {
+            writeCachedErrorData(cached, typeConverter, columnSeparator);
+            return;
+        }
+
+        int count = 0;
+        Statement statement = env.getSourceConnection().getConnection().createStatement();
+        ResultSet countResultSet = statement.executeQuery("SELECT COUNT(1) FROM " + outputTable);
+        if (countResultSet.next()) {
+            count = countResultSet.getInt(1);
+        }
+
+        if (count > 0) {
+            count = Math.min(count, 100000);
+            int pageSize = 1000;
+            int totalPage = count/pageSize + (count%pageSize>0 ? 1:0);
+
+            ResultSet resultSet = statement.executeQuery("SELECT * FROM " + outputTable);
+
+            for (int i=0; i<totalPage; i++) {
+                int start = i * pageSize;
+                int end = (i+1) * pageSize;
+
+                ResultListWithColumns resultList = SqlUtils.getListWithHeaderFromResultSet(resultSet,  start, end);
+                FileUtils.writeToLocal(resultList,
+                        config.getString(ERROR_DATA_DIR),
+                        config.getString(ERROR_DATA_FILE_NAME),
+                        i==0,
+                        typeConverter,
+                        columnSeparator);
             }
 
-            String srcConnectorType = config.getString(SRC_CONNECTOR_TYPE);
-            TypeConverter typeConverter = PluginDiscovery.getMultiKeyPluginDiscovery(ConnectorFactory.class, ConnectorFactory::getPluginNames).getOrCreatePlugin(srcConnectorType).getTypeConverter();
-            if (count > 0) {
-                count = Math.min(count, 10000);
-                //根据行数进行分页查询。分批写到文件里面
-                int pageSize = 1000;
-                int totalPage = count/pageSize + (count%pageSize>0 ? 1:0);
+            resultSet.close();
+        }
+    }
 
-                ResultSet resultSet = statement.executeQuery("SELECT * FROM " + outputTable);
-
-                for (int i=0; i<totalPage; i++) {
-                    int start = i * pageSize;
-                    int end = (i+1) * pageSize;
-
-                    ResultListWithColumns resultList = SqlUtils.getListWithHeaderFromResultSet(resultSet,  start, end);
-                    //执行文件下载到本地
-                    FileUtils.writeToLocal(resultList,
-                            config.getString(ERROR_DATA_DIR),
-                            config.getString(ERROR_DATA_FILE_NAME),
-                            i==0,
-                            typeConverter,
-                            columnSeparator);
-                }
-
-                resultSet.close();
-            }
+    private void writeCachedErrorData(ResultListWithColumns cached, TypeConverter typeConverter, String columnSeparator) {
+        List<Map<String, Object>> rows = cached.getResultList();
+        if (rows == null || rows.isEmpty()) {
+            return;
+        }
+        int count = Math.min(rows.size(), 100000);
+        int pageSize = 1000;
+        int totalPage = count / pageSize + (count % pageSize > 0 ? 1 : 0);
+        for (int i = 0; i < totalPage; i++) {
+            int start = i * pageSize;
+            int end = Math.min((i + 1) * pageSize, count);
+            ResultListWithColumns page = new ResultListWithColumns(cached.getColumns(), new ArrayList<>(rows.subList(start, end)));
+            FileUtils.writeToLocal(page,
+                    config.getString(ERROR_DATA_DIR),
+                    config.getString(ERROR_DATA_FILE_NAME),
+                    i == 0,
+                    typeConverter,
+                    columnSeparator);
         }
     }
 

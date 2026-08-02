@@ -18,32 +18,11 @@ package io.datavines.server.api.dto.bo.job;
 
 import lombok.Data;
 
+import javax.validation.constraints.NotEmpty;
+import java.util.List;
+
 @Data
-public class RuleImportItem {
-
-    private String ruleId;
-
-    private String ruleName;
-
-    private String table;
-
-    private String metricDatabase;
-
-    private String invalidateItemsSql;
-
-    private String expectedValue = "0";
-
-    private String resultFormula = "count";
-
-    private String operator = "eq";
-
-    private double threshold = 0.0;
-
-    private String metricType = "custom_count_sql";
-
-    /** Optional business tag name (maps to dv_job.tag_name). */
-    private String tagName;
-
-    /** Optional group key for PER_TABLE mode (e.g. JSON job name). */
-    private String groupName;
+public class JobBatchIdsRequest {
+    @NotEmpty
+    private List<Long> jobIds;
 }

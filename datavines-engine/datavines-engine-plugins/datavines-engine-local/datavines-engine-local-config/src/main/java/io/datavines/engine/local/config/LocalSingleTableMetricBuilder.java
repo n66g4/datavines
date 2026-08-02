@@ -22,7 +22,6 @@ import io.datavines.common.entity.ExecuteSql;
 import io.datavines.common.entity.job.BaseJobParameter;
 import io.datavines.common.exception.DataVinesException;
 import io.datavines.common.utils.JSONUtils;
-import io.datavines.common.utils.ParameterUtils;
 import io.datavines.common.utils.StringUtils;
 import io.datavines.connector.api.ConnectorFactory;
 import io.datavines.engine.config.MetricParserUtils;
@@ -105,7 +104,7 @@ public class LocalSingleTableMetricBuilder extends BaseLocalConfigurationBuilder
                     MetricParserUtils.operateInputParameter(metricInputParameter, sqlMetric, jobExecutionInfo);
                     if (sqlMetric.getInvalidateItems(metricInputParameter) != null) {
                         ExecuteSql invalidateItemExecuteSql = sqlMetric.getInvalidateItems(metricInputParameter);
-                        connectorParameterMap.put(INVALIDATE_ITEMS_TABLE, "(" + ParameterUtils.convertParameterPlaceholders(invalidateItemExecuteSql.getSql(), metricInputParameter) + ") t");
+                        connectorParameterMap.put(INVALIDATE_ITEMS_TABLE, invalidateItemExecuteSql.getResultTable());
                     }
 
                     connectorParameterMap.put(INVALIDATE_ITEM_CAN_OUTPUT, metricInputParameter.get(INVALIDATE_ITEM_CAN_OUTPUT));

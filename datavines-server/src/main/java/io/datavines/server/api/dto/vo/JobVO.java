@@ -33,6 +33,11 @@ public class JobVO implements Serializable {
 
     private String name;
 
+    /** Business rule id for list/report display. */
+    private String ruleId;
+
+    private String tagName;
+
     private String schemaName;
 
     private String tableName;
