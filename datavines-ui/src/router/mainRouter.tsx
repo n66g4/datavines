@@ -23,6 +23,12 @@ const router: TRouter = {
         icon: <CloseCircleOutlined />,
         component: lazy(() => import(/* webpackChunkName: 'view-warning' */ '@/view/Main/ErrorDataManage')),
     },
+    'dv-opsReport': {
+        path: '/main/opsReport',
+        key: '/main/opsReport',
+        icon: <FormOutlined />,
+        component: lazy(() => import(/* webpackChunkName: 'view-ops-report' */ '@/view/Main/OpsReport')),
+    },
     'dv-userManage': {
         path: '/main/userManage',
         key: '/main/userManage',

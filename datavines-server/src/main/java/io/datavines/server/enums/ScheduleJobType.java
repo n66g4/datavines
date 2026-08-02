@@ -26,7 +26,8 @@ public enum ScheduleJobType {
      *
      */
     DATA_QUALITY(0, "data_quality"),
-    CATALOG(1, "catalog");
+    CATALOG(1, "catalog"),
+    OPS_REPORT(2, "ops_report");
 
     ScheduleJobType(int code, String description){
         this.code = code;

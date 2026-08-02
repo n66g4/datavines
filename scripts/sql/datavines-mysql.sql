@@ -504,6 +504,7 @@ DROP TABLE IF EXISTS `dv_job`;
 CREATE TABLE `dv_job` (
     `id` bigint(20) NOT NULL AUTO_INCREMENT,
     `name` varchar(255) DEFAULT NULL COMMENT '作业名称',
+    `tag_name` varchar(256) DEFAULT NULL COMMENT '业务标签名称',
     `type` int(11) NOT NULL DEFAULT '0' COMMENT '作业类型',
     `datasource_id` bigint(20) NOT NULL COMMENT '数据源ID',
     `datasource_id_2` bigint(20) DEFAULT NULL COMMENT '数据源2ID',
@@ -889,6 +890,49 @@ INSERT INTO `dv_config` VALUES ('28', '-1', 'spark.engine.parameter.executor.cor
 INSERT INTO `dv_config` VALUES ('29', '-1', 'spark.engine.parameter.executor.memory', '512M', '1', '1', '2023-09-05 21:02:38', '1', '2023-09-05 21:02:38');
 INSERT INTO `dv_config` VALUES ('30', '-1', 'datavines.fqdn', 'http://127.0.0.1:5600', '1', '1', '2024-05-21 15:15:38', '1', '2024-05-21 15:15:38');
 INSERT INTO `dv_config` VALUES ('31', '-1', 'data.quality.flink.jar.name', '/libs/datavines-engine-flink-core-1.0.0-SNAPSHOT.jar', '1', '1', '2025-02-02 11:43:04', '1', '2025-02-02 11:43:04');
+
+-- ----------------------------
+-- Table structure for dv_ops_report_profile
+-- ----------------------------
+DROP TABLE IF EXISTS `dv_ops_report_profile`;
+CREATE TABLE `dv_ops_report_profile` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT,
+  `name` varchar(255) NOT NULL COMMENT '报表定义名称',
+  `workspace_id` bigint(20) NOT NULL COMMENT '工作空间ID',
+  `business_type` varchar(64) DEFAULT 'DEFAULT' COMMENT '业务类型',
+  `datasource_ids` text NOT NULL COMMENT '下级部门数据源ID列表 JSON，如 [1,2,3]',
+  `config_json` mediumtext COMMENT '表映射等配置 JSON',
+  `schedule_cron` varchar(128) DEFAULT NULL COMMENT '定时 cron，空则仅手动',
+  `create_by` bigint(20) DEFAULT NULL,
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `update_by` bigint(20) DEFAULT NULL,
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_ops_report_profile_ws` (`workspace_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='统计报表定义';
+
+-- ----------------------------
+-- Table structure for dv_ops_report_run
+-- ----------------------------
+DROP TABLE IF EXISTS `dv_ops_report_run`;
+CREATE TABLE `dv_ops_report_run` (
+  `id` bigint(20) NOT NULL AUTO_INCREMENT,
+  `profile_id` bigint(20) NOT NULL COMMENT '报表定义ID',
+  `workspace_id` bigint(20) NOT NULL,
+  `stat_date` date DEFAULT NULL COMMENT '统计日期',
+  `range_start` datetime DEFAULT NULL,
+  `range_end` datetime DEFAULT NULL,
+  `status` varchar(32) NOT NULL DEFAULT 'PENDING' COMMENT 'PENDING/RUNNING/SUCCESS/FAIL',
+  `ledger_path` varchar(1024) DEFAULT NULL COMMENT '总台账相对路径',
+  `checklist_zip_path` varchar(1024) DEFAULT NULL COMMENT '下级部门整改清单zip路径',
+  `message` text COMMENT '失败信息',
+  `create_by` bigint(20) DEFAULT NULL,
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `finish_time` datetime DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_ops_report_run_profile` (`profile_id`),
+  KEY `idx_ops_report_run_ws` (`workspace_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='统计报表运行记录';
 
 INSERT INTO `dv_user` (`id`, `username`, `password`, `email`, `phone`, `admin`) VALUES ('1', 'admin', '$2a$10$9ZcicUYFl/.knBi9SE53U.Nml8bfNeArxr35HQshxXzimbA6Ipgqq', 'admin@gmail.com', NULL, '0');
 INSERT INTO `dv_workspace` (`id`, `name`, `create_by`, `update_by`) VALUES ('1', "admin\'s default", '1', '1');

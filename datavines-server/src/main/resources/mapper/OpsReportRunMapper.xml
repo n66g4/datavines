@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+
+    Licensed to the Apache Software Foundation (ASF) under one or more
+    contributor license agreements.  See the NOTICE file distributed with
+    this work for additional information regarding copyright ownership.
+    The ASF licenses this file to You under the Apache License, Version 2.0
+    (the "License"); you may not use this file except in compliance with
+    the License.  You may obtain a copy of the License at
+
+       http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+
+-->
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="io.datavines.server.repository.mapper.OpsReportRunMapper">
+
+    <!--
+      Snapshot as of rangeEnd: latest execution per datasource+job+table with start_time < rangeEnd.
+      Includes pass and fail; checklist filters problem>0 in Java.
+      rangeStart kept for API compatibility (unused in WHERE).
+    -->
+    <select id="listFailedQualityResults" resultType="io.datavines.server.api.dto.vo.OpsReportQualityAggVO">
+        SELECT
+            e.datasource_id AS datasourceId,
+            e.job_id AS jobId,
+            e.id AS jobExecutionId,
+            e.name AS executionName,
+            e.table_name AS tableName,
+            r.column_name AS columnName,
+            r.metric_name AS metricName,
+            r.metric_type AS metricType,
+            r.actual_value AS actualValue,
+            r.state AS state,
+            e.error_data_storage_type AS errorDataStorageType,
+            e.error_data_storage_parameter AS errorDataStorageParameter,
+            e.error_data_file_name AS errorDataFileName,
+            j.name AS jobName,
+            j.parameter AS jobParameter,
+            j.rule_id AS ruleId
+        FROM dv_job_execution e
+        INNER JOIN (
+            SELECT datasource_id, job_id, IFNULL(table_name, '') AS table_name, MAX(id) AS max_id
+            FROM dv_job_execution
+            WHERE datasource_id IN
+            <foreach collection="datasourceIds" item="id" open="(" separator="," close=")">
+                #{id}
+            </foreach>
+            AND start_time &lt; #{rangeEnd}
+            GROUP BY datasource_id, job_id, IFNULL(table_name, '')
+        ) latest ON e.id = latest.max_id
+        INNER JOIN dv_job_execution_result r ON r.job_execution_id = e.id
+        LEFT JOIN dv_job j ON j.id = e.job_id
+        <where>
+            <if test="businessTag != null and businessTag != ''">
+                AND j.tag_name = #{businessTag}
+            </if>
+        </where>
+        ORDER BY e.datasource_id, e.table_name, e.job_id, e.id DESC
+    </select>
+</mapper>
