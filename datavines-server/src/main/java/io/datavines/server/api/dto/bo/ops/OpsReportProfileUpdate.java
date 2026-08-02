@@ -29,7 +29,7 @@ public class OpsReportProfileUpdate {
     private String name;
     @NotNull
     private Long workspaceId;
-    private String businessType = "DEFAULT";
+    private String businessType;
     @NotBlank
     private String datasourceIds;
     @NotBlank

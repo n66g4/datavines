@@ -502,7 +502,7 @@ const Index = () => {
                         name="datasourceIdList"
                         label="下级部门数据源"
                         rules={[{ required: true, message: '请选择下级部门数据源' }]}
-                        extra="一市一个数据源，可多选"
+                        extra="一个下级部门对应一个数据源，可多选"
                     >
                         <Select
                             mode="multiple"
@@ -517,7 +517,7 @@ const Index = () => {
                     <Form.Item
                         label="表映射"
                         required
-                        extra="先选下级部门物理表；中文表名从物理表注释自动带出，可改"
+                        extra="先选各下级部门物理表；中文表名从物理表注释自动带出，可改"
                     >
                         <Form.List name="tableMappings">
                             {(fields, { add, remove }) => (
@@ -599,7 +599,7 @@ const Index = () => {
                     <Form.Item
                         name="timeFields"
                         label="时间字段"
-                        extra="可选；用于报送最新时间。默认已选 entrytime、update_time，可增删"
+                        extra="可选；用于报送最新时间。默认已选 create_time、update_time，可增删"
                     >
                         <Select
                             mode="tags"

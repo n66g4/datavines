@@ -27,8 +27,9 @@ public class OpsReportProfileCreate {
     private String name;
     @NotNull
     private Long workspaceId;
-    private String businessType = "DEFAULT";
-    /** JSON array of datasource ids, e.g. [1,2,3] */
+    /** Business tag / type; usually filled from workspace tag name */
+    private String businessType;
+    /** JSON array of subordinate-department datasource ids, e.g. [1,2,3] */
     @NotBlank
     private String datasourceIds;
     /** table mappings JSON */

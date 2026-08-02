@@ -899,7 +899,7 @@ CREATE TABLE `dv_ops_report_profile` (
   `id` bigint(20) NOT NULL AUTO_INCREMENT,
   `name` varchar(255) NOT NULL COMMENT '报表定义名称',
   `workspace_id` bigint(20) NOT NULL COMMENT '工作空间ID',
-  `business_type` varchar(64) DEFAULT 'DEFAULT' COMMENT '业务类型',
+  `business_type` varchar(64) DEFAULT NULL COMMENT '业务类型/业务标签',
   `datasource_ids` text NOT NULL COMMENT '下级部门数据源ID列表 JSON，如 [1,2,3]',
   `config_json` mediumtext COMMENT '表映射等配置 JSON',
   `schedule_cron` varchar(128) DEFAULT NULL COMMENT '定时 cron，空则仅手动',

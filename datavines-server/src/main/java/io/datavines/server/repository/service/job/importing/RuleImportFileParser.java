@@ -197,7 +197,7 @@ public final class RuleImportFileParser {
 
     public static byte[] buildCsvTemplate() {
         String csv = "rule_id,rule_name,业务标签,table,metric_database,invalidate_items_sql,expected_value,result_formula,operator,threshold,metric_type\n"
-                + "70,rule70_sample,示例业务,,demo_db,\"SELECT * FROM demo_table WHERE (EvaluationResults = '2' AND InspPicture IS NULL) AND (DATA_STATE IS NULL OR DATA_STATE <> '0')\",0,count,eq,0,custom_count_sql\n";
+                + "1,demo_not_null,示例业务,,demo_db,\"SELECT * FROM demo_table WHERE demo_col IS NULL\",0,count,eq,0,custom_count_sql\n";
         return csv.getBytes(StandardCharsets.UTF_8);
     }
 
@@ -214,13 +214,13 @@ public final class RuleImportFileParser {
                 header.createCell(i).setCellValue(headers[i]);
             }
             Row sample = sheet.createRow(1);
-            sample.createCell(0).setCellValue("70");
-            sample.createCell(1).setCellValue("rule70_sample");
+            sample.createCell(0).setCellValue("1");
+            sample.createCell(1).setCellValue("demo_not_null");
             sample.createCell(2).setCellValue("示例业务");
             sample.createCell(3).setCellValue("");
             sample.createCell(4).setCellValue("demo_db");
             sample.createCell(5).setCellValue(
-                    "SELECT * FROM demo_table WHERE (EvaluationResults = '2' AND InspPicture IS NULL) AND (DATA_STATE IS NULL OR DATA_STATE <> '0')");
+                    "SELECT * FROM demo_table WHERE demo_col IS NULL");
             sample.createCell(6).setCellValue("0");
             sample.createCell(7).setCellValue("count");
             sample.createCell(8).setCellValue("eq");

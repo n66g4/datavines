@@ -43,7 +43,7 @@ export default {
     '/main/warning': 'Warning',
     '/main/userManage': 'User',
     '/main/errorDataManage': 'ErrorData',
-    '/main/opsReport': 'Ops Report',
+    '/main/opsReport': 'Stats Report',
     '/main/detail/:id/jobExecutionLogs': 'JobExecutions',
     '/main/detail/:id/dashboard': 'Dashboard',
     '/main/detail/:id/editor': 'Catalog',
@@ -331,7 +331,7 @@ export default {
     workspace_role_admin: 'Admin',
     workspace_role_member: 'Member',
     jobs_business_tag: 'Business Tag',
-    jobs_business_tag_tip: 'Matches ops-report business tag; untagged jobs are excluded',
+    jobs_business_tag_tip: 'Matches stats-report business tag; untagged jobs are excluded',
 
     datasource: 'DataSource',
     datasource_modal_add_title: 'Create DataSource',

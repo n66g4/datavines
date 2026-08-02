@@ -22,11 +22,11 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * config_json schema for ops report profile.
+ * config_json schema for stats report profile.
  * <pre>
  * {
  *   "businessTag":"示例业务",
- *   "tables":[{"cnName":"...","byDatasource":{"3":"demo_table"}}],
+ *   "tables":[{"cnName":"示例表","byDatasource":{"3":"demo_table"}}],
  *   "timeFields":["create_time","update_time"],
  *   "errorSampleLimit":50,
  *   "errorDetailMaxRows":100000

@@ -1,0 +1,3 @@
+rule_id,rule_name,table_name,table_cn
+1,示例字段_不为空,demo_table_1,示例业务表一
+2,示例编码_格式校验,demo_table_2,示例业务表二

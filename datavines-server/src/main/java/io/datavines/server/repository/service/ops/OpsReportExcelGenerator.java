@@ -212,7 +212,7 @@ public class OpsReportExcelGenerator {
             return config.getBusinessTag().trim();
         }
         if (profile != null && StringUtils.isNotEmpty(profile.getBusinessType())
-                && !"DEFAULT".equals(profile.getBusinessType())) {
+                && !"DEFAULT".equalsIgnoreCase(profile.getBusinessType())) {
             return profile.getBusinessType().trim();
         }
         if (config != null && CollectionUtils.isNotEmpty(config.getTables())) {

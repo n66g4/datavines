@@ -116,9 +116,9 @@ public enum Status {
     UPDATE_ERROR_DATA_STORAGE_ERROR(17010004, "Update Error Data Storage {0} Error", "更新 错误数据存储 {0} 错误"),
     ERROR_DATA_STORAGE_TYPE_NOT_SUPPORT_ERROR(17010005, "Error Data Storage type {0} is not supported", "错误数据存储类型 {0} 不支持"),
 
-    OPS_REPORT_PROFILE_NOT_EXIST_ERROR(17020001, "Ops report profile {0} not exist", "统计报表定义 {0} 不存在"),
-    OPS_REPORT_RUN_NOT_EXIST_ERROR(17020002, "Ops report run {0} not exist", "统计报表运行 {0} 不存在"),
-    OPS_REPORT_GENERATE_ERROR(17020003, "Ops report generate failed: {0}", "统计报表生成失败: {0}"),
+    OPS_REPORT_PROFILE_NOT_EXIST_ERROR(17020001, "Stats report profile {0} not exist", "统计报表定义 {0} 不存在"),
+    OPS_REPORT_RUN_NOT_EXIST_ERROR(17020002, "Stats report run {0} not exist", "统计报表运行 {0} 不存在"),
+    OPS_REPORT_GENERATE_ERROR(17020003, "Stats report generate failed: {0}", "统计报表生成失败: {0}"),
 
     SLA_ALREADY_EXIST_ERROR(18010001, "SLA {0} Already exist", "SLA {0} 已经存在"),
     SLA_SENDER_ALREADY_EXIST_ERROR(18020001, "SLA Sender {0}  Already exist", "SLA 发送器 {0} 已经存在"),
