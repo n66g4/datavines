@@ -197,7 +197,7 @@ const Index = ({
                     <Col span={12}>
                         <Form.Item
                             {...layoutItem}
-                            label="Metric"
+                            label={intl.formatMessage({ id: 'dv_metric_type_label' })}
                             name="metricType"
                             rules={[{ required: true, message: intl.formatMessage({ id: 'editor_dv_metric_select_placeholder' }) }]}
                         >

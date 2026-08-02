@@ -74,7 +74,7 @@ const Index = ({
                     <CopyToClipboard
                         text={`select * from ${item.name}.${tableItem.name}`}
                         onCopy={() => {
-                            message.success('Copy success');
+                            message.success(intl.formatMessage({ id: 'common_copy_success' }));
                         }}
                     >
                         <CopyOutlined />

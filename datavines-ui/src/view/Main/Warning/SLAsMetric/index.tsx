@@ -73,7 +73,7 @@ const Index = () => {
         try {
             setLoading(true);
             await $http.delete(`/sla/job/${record.id}`);
-            message.success('Delete Success');
+            message.success(intl.formatMessage({ id: 'common_delete_success' }));
             getData();
         } catch (error) {
         } finally {

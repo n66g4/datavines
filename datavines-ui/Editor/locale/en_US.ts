@@ -43,6 +43,8 @@ export default {
     dv_metric_create_time: 'Create time',
     dv_metric_update_time: 'Update time',
     dv_metric_name: 'Name',
+    dv_metric_tenant: 'Tenant',
+    dv_metric_env: 'Environment',
     dv_metric_env_config: 'Env Config',
     dv_metric_config: 'Metric Config',
     dv_metric_run_env_config: 'Operating Environment Configuration',
@@ -84,6 +86,7 @@ export default {
     dashboard_quality_report: 'Quality Report Dashboard',
 
     lineage_title: 'Data Lineage',
+    lineage_current: 'Current',
     lineage_upstream: 'Upstream',
     lineage_downstream: 'Downstream',
     lineage_both: 'All',
@@ -101,6 +104,8 @@ export default {
     lineage_related_sql: 'Related SQL',
     lineage_expand_more: 'Expand',
     lineage_fit_view: 'Fit View',
+    lineage_zoom_in: 'Zoom In',
+    lineage_zoom_out: 'Zoom Out',
     lineage_refresh: 'Refresh',
     lineage_view_as_center: 'View as Center',
     lineage_view_detail: 'View Detail',
@@ -110,4 +115,6 @@ export default {
     lineage_select_column: 'Select Column',
     lineage_search_placeholder: 'Search table...',
     lineage_optional: 'Optional',
+    lineage_sql_example: 'Example: INSERT INTO target_table SELECT * FROM source_table',
+    lineage_sql_placeholder: 'INSERT INTO target_table SELECT ... FROM source_table',
 };

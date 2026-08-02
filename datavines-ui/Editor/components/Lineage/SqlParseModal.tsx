@@ -97,11 +97,11 @@ const SqlParseModal: React.FC<SqlParseModalProps> = ({
                     name="sql"
                     label="SQL"
                     rules={[{ required: true }]}
-                    extra="Example: INSERT INTO target_table SELECT * FROM source_table"
+                    extra={intl.formatMessage({ id: 'lineage_sql_example' })}
                 >
                     <TextArea
                         rows={10}
-                        placeholder="INSERT INTO target_table SELECT ... FROM source_table"
+                        placeholder={intl.formatMessage({ id: 'lineage_sql_placeholder' })}
                         style={{ fontFamily: "'SF Mono', 'Fira Code', Consolas, monospace", fontSize: 13 }}
                     />
                 </Form.Item>

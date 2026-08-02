@@ -119,7 +119,7 @@ export const useMetricModal = () => {
             setLoading(true);
             const params = await innerRef.current.getValues();
             const res = await $http.post('/job', { ...params, runningNow });
-            message.success('Success!');
+            message.success(intl.formatMessage({ id: 'common_success' }));
         } catch (error) {
             console.log('error', error);
         } finally {
@@ -136,10 +136,7 @@ export const useMetricModal = () => {
         title: (
             <div className="dv-editor-flex-between" style={{ height: '100%' }}>
                 <span>
-                    {'Metric '}
-                    {
-                        intl.formatMessage({ id: 'dv_config_text' })
-                    }
+                    {intl.formatMessage({ id: 'dv_metric_config' })}
                 </span>
                 <span style={{ marginRight: 20, marginTop: -8 }}>
                     <Button type="primary" onClick={onSave}>{intl.formatMessage({ id: 'dv_metric_save' })}</Button>

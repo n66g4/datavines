@@ -94,6 +94,7 @@ export const SelectSLAsComponent = ({ jobId, id, style = {} }: { jobId: any, id:
 
 export const useSelectSLAsModal = (options: ModalProps) => {
     const innerRef = useRef<any>();
+    const intl = useIntl();
     const [detail, setDetail] = useState();
     const detailRef = useRef<any>();
     detailRef.current = detail;
@@ -101,7 +102,7 @@ export const useSelectSLAsModal = (options: ModalProps) => {
         innerRef.current.onSaveUpdate();
     });
     const { Render, show, ...rest } = useModal<any>({
-        title: 'SLAs',
+        title: intl.formatMessage({ id: 'sla_title' }),
         width: 640,
         ...(options || {}),
         onOk,

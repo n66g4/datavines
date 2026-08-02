@@ -14,7 +14,7 @@ const Index = ({ uuid, type }:{uuid:string;type:string}) => {
             setOption(
                 {
                     title: {
-                        text: 'Top 10',
+                        text: intl.formatMessage({ id: 'job_top10' }),
                         left: 'center',
                     },
                     color: ['#ffd56a', '#ff4d4f'],
@@ -24,7 +24,7 @@ const Index = ({ uuid, type }:{uuid:string;type:string}) => {
                         bottom: 30,
                     },
                     tooltip: {
-                        formatter: (data:any) => `${data.marker}${data.data.name}<br/>count:${data.data.value}<br/>percentage:${data.data.percentage}`,
+                        formatter: (data:any) => `${data.marker}${data.data.name}<br/>${intl.formatMessage({ id: 'job_count_series' })}:${data.data.value}<br/>${intl.formatMessage({ id: 'job_percentage' })}:${data.data.percentage}`,
                     },
                     xAxis: {
                         type: 'category',
@@ -41,7 +41,7 @@ const Index = ({ uuid, type }:{uuid:string;type:string}) => {
                     },
                     series: [
                         {
-                            name: 'Count',
+                            name: intl.formatMessage({ id: 'job_count_series' }),
                             data: res.top10Distribution.map((item:{
                                 count:number;percentage:string;name:string;
                         }) => ({

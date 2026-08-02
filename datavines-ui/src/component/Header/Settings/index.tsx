@@ -59,7 +59,7 @@ const HeaderRight = () => {
                         onClick={handleMenuClick}
                         items={[
                             {
-                                label: 'Log out',
+                                label: intl.formatMessage({ id: 'common_Logout' }),
                                 key: '0',
                             },
                         ]}

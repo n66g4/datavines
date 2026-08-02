@@ -53,7 +53,7 @@ const Index: React.FC<IndexProps> = () => {
             layout: 'vertical',
             meta: [
                 {
-                    label: 'name',
+                    label: intl.formatMessage({ id: 'dv_metric_tenant' }),
                     name: 'tenant',
                     rules: [
                         { required: true },
@@ -89,28 +89,28 @@ const Index: React.FC<IndexProps> = () => {
     });
     const columns: ColumnsType<IDataSourceListItem> = [
         {
-            title: 'tenant',
+            title: intl.formatMessage({ id: 'dv_metric_tenant' }),
             dataIndex: 'tenant',
             key: 'tenant',
             width: 160,
             render: (text: string) => <div>{text}</div>,
         },
         {
-            title: 'createTime',
+            title: intl.formatMessage({ id: 'dv_metric_create_time' }),
             dataIndex: 'createTime',
             key: 'createTime',
             width: 140,
             render: (text: string) => <div>{text}</div>,
         },
         {
-            title: 'updateTime',
+            title: intl.formatMessage({ id: 'dv_metric_update_time' }),
             dataIndex: 'updateTime',
             key: 'updateTime',
             width: 140,
             render: (text: string) => <div>{text}</div>,
         },
         {
-            title: '操作',
+            title: intl.formatMessage({ id: 'common_action' }),
             fixed: 'right',
             key: 'right',
             dataIndex: 'right',

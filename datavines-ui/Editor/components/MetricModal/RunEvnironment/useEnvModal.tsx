@@ -54,7 +54,7 @@ const Index: React.FC<IndexProps> = () => {
             layout: 'vertical',
             meta: [
                 {
-                    label: 'name',
+                    label: intl.formatMessage({ id: 'dv_metric_name' }),
                     name: 'name',
                     rules: [
                         { required: true },
@@ -63,7 +63,7 @@ const Index: React.FC<IndexProps> = () => {
                     widget: <Input autoComplete="off" />,
                 },
                 {
-                    label: 'env',
+                    label: intl.formatMessage({ id: 'dv_metric_env' }),
                     name: 'env',
                     rules: [
                         { required: true },
@@ -99,21 +99,21 @@ const Index: React.FC<IndexProps> = () => {
     });
     const columns: ColumnsType<IDataSourceListItem> = [
         {
-            title: 'name',
+            title: intl.formatMessage({ id: 'dv_metric_name' }),
             dataIndex: 'name',
             key: 'name',
             width: 160,
             render: (text: string) => <div>{text}</div>,
         },
         {
-            title: 'createTime',
+            title: intl.formatMessage({ id: 'dv_metric_create_time' }),
             dataIndex: 'createTime',
             key: 'createTime',
             width: 140,
             render: (text: string) => <div>{text}</div>,
         },
         {
-            title: 'updateTime',
+            title: intl.formatMessage({ id: 'dv_metric_update_time' }),
             dataIndex: 'updateTime',
             key: 'updateTime',
             width: 140,

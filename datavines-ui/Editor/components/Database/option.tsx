@@ -49,7 +49,7 @@ export const dataBaseCol:Col[][] = [[{
     dataIndex: 'columns',
     key: 'columns',
 }, {
-    title: 'Metrics',
+    title: <FormattedMessage id="job_metrics" />,
     dataIndex: 'metrics',
     key: 'metrics',
 }], [

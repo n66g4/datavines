@@ -2,7 +2,7 @@ import React, {
     useRef, useImperativeHandle, useState, useMemo,
 } from 'react';
 import {
-    ModalProps, Tabs, Spin, Button, message, Input, Form, Col, Row,
+    ModalProps, Tabs, Spin, Button, message, Input, Form, Col, Row, Select,
 } from 'antd';
 import {
     useModal, useImmutable, usePersistFn, useContextModal, useMount, useLoading, IF,
@@ -52,8 +52,29 @@ export const Inner = ({
     }), [workspaceId]);
 
     const [jobName, setJobName] = useState('');
+    const [tagOptions, setTagOptions] = useState<{ label: string; value: string }[]>([]);
 
     const [jobForm] = Form.useForm();
+
+    const loadTags = async () => {
+        if (!workspaceId) {
+            setTagOptions([]);
+            return;
+        }
+        try {
+            const res = await $http.get(`/catalog/tag/list-in-workspace/${workspaceId}`);
+            const list = Array.isArray(res) ? res : (Array.isArray(res?.data) ? res.data : []);
+            const names = new Set<string>();
+            list.forEach((t: any) => {
+                if (t?.name) {
+                    names.add(String(t.name));
+                }
+            });
+            setTagOptions([...names].map((n) => ({ label: n, value: n })));
+        } catch (e) {
+            setTagOptions([]);
+        }
+    };
 
     useImperativeHandle(innerRef, () => ({
         getData() {
@@ -73,6 +94,11 @@ export const Inner = ({
         const res = await $http.get(`/job/${id}`);
         try {
             setJobName(res.name)
+            jobForm.setFieldsValue({
+                jobName: res.name,
+                ruleId: res.ruleId || undefined,
+                tagName: res.tagName || undefined,
+            });
             res.parameter = res.parameter ? JSON.parse(res.parameter) || [] : [];
             res.parameterItem = res.parameter?.[0] || {};
         } catch (error) {
@@ -102,6 +128,7 @@ export const Inner = ({
         document.documentElement.removeChild(a);
     };
     useMount(async () => {
+        await loadTags();
         if (!data.record?.id) {
             $setLoading(false);
             return;
@@ -127,8 +154,10 @@ export const Inner = ({
                 console.log(fieldsValid)
                 return; // 直接 return 整个函数
             }
+            const tagName = jobForm.getFieldValue('tagName') || null;
+            const ruleId = jobForm.getFieldValue('ruleId') || null;
             if (jobId) {
-                await $http.put('/job', { ...params, jobName: jobName, id: jobId, runningNow });
+                await $http.put('/job', { ...params, jobName: jobName, ruleId, tagName, id: jobId, runningNow });
                 getConfig(jobId);
                 if(runningNow == 2){
                     showJobPreviewModal(jobId)
@@ -139,11 +168,11 @@ export const Inner = ({
                 if (entityUuid) {
                     resData = {
                         entityUuid,
-                        jobCreate: { ...params, jobName: jobName, runningNow },
+                        jobCreate: { ...params, jobName: jobName, ruleId, tagName, runningNow },
                     };
                     url = '/catalog/add-metric';
                 } else {
-                    resData = { ...params, jobName: jobName, runningNow };
+                    resData = { ...params, jobName: jobName, ruleId, tagName, runningNow };
                 }
                 const res = await $http.post(url, resData);
                 setJobId(res);
@@ -152,7 +181,7 @@ export const Inner = ({
                     showJobPreviewModal(res)
                 }
             }
-            message.success('Success!');
+            message.success(intl.formatMessage({ id: 'common_success' }));
             if (runningNow == 1) {
                 // eslint-disable-next-line no-unused-expressions
                 hide && hide();
@@ -208,7 +237,7 @@ export const Inner = ({
                         <div style={{ width: 'calc(100% - 80px)' }}>
                             <Row gutter={30} style={{ marginTop: 15 }}>
                                 <Col span={12}>
-                                    <Form name="baseJob" form={jobForm} initialValues={{jobName: jobName}}>
+                                    <Form name="baseJob" form={jobForm} initialValues={{ jobName: jobName }}>
                                         <Form.Item
                                             label={intl.formatMessage({id: "jobs_name"})}
                                             name="jobName"
@@ -217,6 +246,31 @@ export const Inner = ({
                                             <Input allowClear onChange={e => setJobName(e.target.value)}
                                                    autoComplete="off"
                                                    placeholder={intl.formatMessage({id: 'jobs_name'})}
+                                            />
+                                        </Form.Item>
+                                        <Form.Item
+                                            label={intl.formatMessage({ id: 'jobs_rule_id' })}
+                                            name="ruleId"
+                                            extra={intl.formatMessage({ id: 'jobs_rule_id_tip' })}
+                                        >
+                                            <Input
+                                                allowClear
+                                                autoComplete="off"
+                                                placeholder={intl.formatMessage({ id: 'jobs_rule_id' })}
+                                            />
+                                        </Form.Item>
+                                        <Form.Item
+                                            label={intl.formatMessage({ id: 'jobs_business_tag' })}
+                                            name="tagName"
+                                            extra={intl.formatMessage({ id: 'jobs_business_tag_tip' })}
+                                        >
+                                            <Select
+                                                allowClear
+                                                showSearch
+                                                optionFilterProp="label"
+                                                placeholder={tagOptions.length ? intl.formatMessage({ id: 'jobs_business_tag' }) : '暂无标签'}
+                                                options={tagOptions}
+                                                disabled={tagOptions.length === 0}
                                             />
                                         </Form.Item>
                                     </Form>
@@ -253,10 +307,11 @@ export const Inner = ({
 
 export const useAddEditJobsModal = (options: ModalProps) => {
     const innerRef = useRef();
+    const intl = useIntl();
     const onOk = usePersistFn(() => {
     });
     const { Render, hide, ...rest } = useModal<any>({
-        title: 'Schedule Manage',
+        title: intl.formatMessage({ id: 'jobs_schedule_manage' }),
         width: 640,
         ...(options || {}),
         bodyStyle: {

@@ -11,6 +11,7 @@ import './index.less';
 import { setEditorFn, useEditorActions, useEditorContextState } from '@Editor/store/editor';
 import { IF } from '@Editor/common';
 import { useIntl } from 'react-intl';
+import { useHistory } from 'react-router-dom';
 import dayjs, { Dayjs } from 'dayjs';
 import TextArea from 'antd/lib/input/TextArea';
 import useRequest from '../../hooks/useRequest';
@@ -37,15 +38,27 @@ type RangeValue = [Dayjs | null, Dayjs | null] | null;
 
 const Index = ({ onShowModal, afterClose }:DIndexProps) => {
     const [{ selectDatabases, workspaceId, id }] = useEditorContextState();
+    const history = useHistory();
     const { Render: RenderModal } = useMetricModal();
     const { $http } = useRequest();
     const intl = useIntl();
     const { Render: RenderLoggerModal, show: showLoggerModal } = useLogger({});
     const { RangePicker } = DatePicker;
+
+    const goToRelatedJobs = (tableName: string) => {
+        const schemaName = selectDatabases[1]?.name || '';
+        const dsId = id;
+        if (!dsId || !tableName) {
+            return;
+        }
+        const qs = new URLSearchParams();
+        if (schemaName) {
+            qs.set('schemaSearch', schemaName);
+        }
+        qs.set('tableSearch', tableName);
+        history.push(`/main/detail/${dsId}/jobs?${qs.toString()}`);
+    };
     const searchForm = Form.useForm()[0];
-    useEffect(() => {
-        getTagList();
-    }, []);
     const [detailName, setName] = useState({
         name: intl.formatMessage({ id: 'datasource' }),
         colName: '',
@@ -79,9 +92,17 @@ const Index = ({ onShowModal, afterClose }:DIndexProps) => {
         name?:string
     }[]>([]);
     const getTagList = async () => {
+        if (!workspaceId) {
+            setTagList([]);
+            return;
+        }
         const res = await $http.get(`/catalog/tag/list-in-workspace/${workspaceId}`);
-        setTagList(res);
+        setTagList(Array.isArray(res) ? res : []);
     };
+    useEffect(() => {
+        getTagList();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [workspaceId]);
     const [currentList, setCurrentList] = useState<{name:string;id:string;uuid:string}[]>([]);
     const getCurrentTagList = async (entityUUID:string) => {
         const res = await $http.get(`/catalog/tag/list-in-entity/${entityUUID}`);
@@ -221,6 +242,17 @@ const Index = ({ onShowModal, afterClose }:DIndexProps) => {
                 dataBaseCol[0][0].onCell = (record) => ({
                     onClick: () => renderNext(record, 1),
                 });
+                dataBaseCol[0][4].render = (text: any, record: any) => (
+                    <a
+                        className="text-underline"
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            goToRelatedJobs(record?.name);
+                        }}
+                    >
+                        {text ?? 0}
+                    </a>
+                );
                 setColums(dataBaseCol[0]);
                 getTableList(selectDatabases[index].uuid);
                 getCurrentTagList(selectDatabases[index].uuid);
@@ -403,7 +435,7 @@ const Index = ({ onShowModal, afterClose }:DIndexProps) => {
             endTime: timer && timer[1] ? dayjs(timer[1]).format('YYYY-MM-DD') : undefined,
         }).then((res) => setOption({
             title: {
-                text: 'Table Records',
+                text: intl.formatMessage({ id: 'job_table_records' }),
                 left: 'center',
             },
             color: ['#ffd56a'],
@@ -605,7 +637,7 @@ const Index = ({ onShowModal, afterClose }:DIndexProps) => {
         try {
             setLoading(true);
             await $http.post(`/job/execute/${id}`);
-            message.success('Run Success');
+            message.success(intl.formatMessage({ id: 'common_run_success' }));
         } catch (error) {
         } finally {
             setLoading(false);
@@ -615,7 +647,7 @@ const Index = ({ onShowModal, afterClose }:DIndexProps) => {
         try {
             setLoading(true);
             await $http.delete(`/job/${id}`);
-            message.success('Delete Success');
+            message.success(intl.formatMessage({ id: 'common_delete_success' }));
             setMetricid('');
             getDetail(selectDatabases[currentIndex].uuid);
             let key = '';
@@ -719,7 +751,10 @@ const Index = ({ onShowModal, afterClose }:DIndexProps) => {
                                 currentList.map((item) => <Tag onClose={(e) => onClose(e, item)} closable key={item.id} color="#FF2D55">{item.name}</Tag>)
                             }
                             <Tag
-                                onClick={() => setIsModalOpen(true)}
+                                onClick={() => {
+                                    getTagList();
+                                    setIsModalOpen(true);
+                                }}
                                 style={{
                                     background: '#fff',
                                     borderStyle: 'dashed',

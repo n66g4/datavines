@@ -1,9 +1,9 @@
-import React, {useState} from 'react';
+import React, {useEffect, useState} from 'react';
 import type {MenuProps} from 'antd';
-import {Button, DatePicker, Dropdown, Form, Input, Menu, message, Popconfirm, Row, Table, Tabs, TabsProps,} from 'antd';
+import {Button, DatePicker, Dropdown, Form, Input, Menu, message, Popconfirm, Row, Space, Table, Tabs, TabsProps,} from 'antd';
 import {ColumnsType} from 'antd/lib/table';
 import {useIntl} from 'react-intl';
-import {useHistory, useRouteMatch} from 'react-router-dom';
+import {useHistory, useLocation, useRouteMatch} from 'react-router-dom';
 import {TJobsTableData, TJobsTableItem} from '@/type/Jobs';
 import {useWatch} from '@/common';
 import {$http} from '@/http';
@@ -24,8 +24,10 @@ const Jobs = ({ datasourceId }: TJobs) => {
     const form = Form.useForm()[0];
     const [loading, setLoading] = useState(false);
     const history = useHistory();
+    const location = useLocation();
     const match = useRouteMatch();
     const [addType, setAddType] = useState('');
+    const [queryReady, setQueryReady] = useState(false);
     const { Render: RenderJobPreviewModal, show: showJobPreviewModal } = useJobExecutionConfigPreview({
         afterClose() {
             getData();
@@ -52,6 +54,7 @@ const Jobs = ({ datasourceId }: TJobs) => {
     });
 
     const [tableData, setTableData] = useState<TJobsTableData>({ list: [], total: 0 });
+    const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
 
     const [pageParams, setPageParams] = useState({
         pageNumber: 1,
@@ -128,8 +131,20 @@ const Jobs = ({ datasourceId }: TJobs) => {
         }
     };
 
-    useWatch([pageParams], () => {
-        getData();
+    useEffect(() => {
+        const qs = new URLSearchParams(location.search);
+        const schemaSearch = qs.get('schemaSearch') || undefined;
+        const tableSearch = qs.get('tableSearch') || undefined;
+        if (schemaSearch || tableSearch) {
+            form.setFieldsValue({ schemaSearch, tableSearch });
+        }
+        setQueryReady(true);
+    }, [location.search]);
+
+    useWatch([pageParams, queryReady], () => {
+        if (queryReady) {
+            getData();
+        }
     }, { immediate: true });
 
     const onSearch = (_values: any) => {
@@ -147,7 +162,7 @@ const Jobs = ({ datasourceId }: TJobs) => {
         try {
             setLoading(true);
             await $http.post(`/job/execute/${record.id}`);
-            message.success('Run Success');
+            message.success(intl.formatMessage({ id: 'common_run_success' }));
             getData();
         } catch (error) {
         } finally {
@@ -172,7 +187,47 @@ const Jobs = ({ datasourceId }: TJobs) => {
         try {
             setLoading(true);
             await $http.delete(`/job/${record.id}`);
-            message.success('Delete Success');
+            message.success(intl.formatMessage({ id: 'common_delete_success' }));
+            getData();
+        } catch (error) {
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const onBatchExecute = async () => {
+        if (!selectedRowKeys.length) {
+            message.warning(intl.formatMessage({ id: 'jobs_batch_select_tip' }));
+            return;
+        }
+        try {
+            setLoading(true);
+            const res = await $http.post('/job/batch/execute', { jobIds: selectedRowKeys });
+            message.success(intl.formatMessage(
+                { id: 'jobs_batch_result' },
+                { success: res?.successCount ?? 0, fail: res?.failCount ?? 0 },
+            ));
+            setSelectedRowKeys([]);
+            getData();
+        } catch (error) {
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const onBatchDelete = async () => {
+        if (!selectedRowKeys.length) {
+            message.warning(intl.formatMessage({ id: 'jobs_batch_select_tip' }));
+            return;
+        }
+        try {
+            setLoading(true);
+            const res = await $http.post('/job/batch/delete', { jobIds: selectedRowKeys });
+            message.success(intl.formatMessage(
+                { id: 'jobs_batch_result' },
+                { success: res?.successCount ?? 0, fail: res?.failCount ?? 0 },
+            ));
+            setSelectedRowKeys([]);
             getData();
         } catch (error) {
         } finally {
@@ -195,10 +250,10 @@ const Jobs = ({ datasourceId }: TJobs) => {
     const columns: ColumnsType<TJobsTableItem> = [
         {
             title: intl.formatMessage({ id: 'jobs_id' }),
-            dataIndex: 'id',
-            key: 'id',
+            dataIndex: 'ruleId',
+            key: 'ruleId',
             width: 160,
-            render: (text: any) => defaultRender(text, 200),
+            render: (text: any) => defaultRender(text || '--', 200),
         },
         {
             title: intl.formatMessage({ id: 'jobs_name' }),
@@ -206,6 +261,13 @@ const Jobs = ({ datasourceId }: TJobs) => {
             key: 'name',
             width: 160,
             render: (text: any) => defaultRender(text, 200),
+        },
+        {
+            title: intl.formatMessage({ id: 'jobs_business_tag' }),
+            dataIndex: 'tagName',
+            key: 'tagName',
+            width: 140,
+            render: (text: any) => defaultRender(text || '--', 140),
         },
         {
             title: intl.formatMessage({ id: 'dv_metric_database' }),
@@ -306,6 +368,7 @@ const Jobs = ({ datasourceId }: TJobs) => {
 
     const onChangeTab = (key: string) => {
         setType(+key);
+        setSelectedRowKeys([]);
         setPageParams({
             pageNumber: 1,
             pageSize: 10,
@@ -399,32 +462,44 @@ const Jobs = ({ datasourceId }: TJobs) => {
                         </Form>
                     </div>
                     <div>
-                        <Button
-                            type="default"
-                            style={{ marginRight: 15 }}
-                            onClick={onSearch}
-                        >
-                            {intl.formatMessage({ id: 'common_search' })}
-                        </Button>
-                        <Button
-                            type="default"
-                            style={{ marginRight: 15 }}
-                            onClick={() => {
-                                showBatchImportModal({
-                                    datasourceId: datasourceId || (match.params as any).id,
-                                });
-                            }}
-                        >
-                            {intl.formatMessage({ id: 'jobs_batch_import' })}
-                        </Button>
-                        <Dropdown overlay={menu}>
-                            <Button
-                                type="primary"
-                                style={{ marginRight: 15 }}
-                            >
-                                {intl.formatMessage({ id: 'jobs_add' })}
+                        <Space wrap>
+                            <Button type="default" onClick={onSearch}>
+                                {intl.formatMessage({ id: 'common_search' })}
                             </Button>
-                        </Dropdown>
+                            <Button
+                                type="default"
+                                disabled={!selectedRowKeys.length}
+                                onClick={onBatchExecute}
+                            >
+                                {intl.formatMessage({ id: 'jobs_batch_execute' })}
+                                {selectedRowKeys.length ? `(${selectedRowKeys.length})` : ''}
+                            </Button>
+                            <Popconfirm
+                                title={intl.formatMessage({ id: 'jobs_batch_delete_tip' })}
+                                disabled={!selectedRowKeys.length}
+                                onConfirm={onBatchDelete}
+                            >
+                                <Button type="default" danger disabled={!selectedRowKeys.length}>
+                                    {intl.formatMessage({ id: 'jobs_batch_delete' })}
+                                    {selectedRowKeys.length ? `(${selectedRowKeys.length})` : ''}
+                                </Button>
+                            </Popconfirm>
+                            <Button
+                                type="default"
+                                onClick={() => {
+                                    showBatchImportModal({
+                                        datasourceId: datasourceId || (match.params as any).id,
+                                    });
+                                }}
+                            >
+                                {intl.formatMessage({ id: 'jobs_batch_import' })}
+                            </Button>
+                            <Dropdown overlay={menu}>
+                                <Button type="primary">
+                                    {intl.formatMessage({ id: 'jobs_add' })}
+                                </Button>
+                            </Dropdown>
+                        </Space>
                     </div>
                 </div>
             </div>
@@ -436,6 +511,11 @@ const Jobs = ({ datasourceId }: TJobs) => {
                 columns={columns}
                 dataSource={tableData.list || []}
                 onChange={onChange}
+                rowSelection={{
+                    selectedRowKeys,
+                    preserveSelectedRowKeys: true,
+                    onChange: (keys) => setSelectedRowKeys(keys),
+                }}
                 pagination={{
                     size: 'small',
                     total: tableData.total,

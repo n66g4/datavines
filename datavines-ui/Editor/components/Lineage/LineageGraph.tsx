@@ -4,6 +4,7 @@ import { Button, Tooltip } from 'antd';
 import {
     ZoomInOutlined, ZoomOutOutlined, CompressOutlined,
 } from '@ant-design/icons';
+import { useIntl } from 'react-intl';
 import { NODE_WIDTH, NODE_HEIGHT, EDGE_COLORS, EDGE_ACTIVE_COLORS } from './constants';
 import { registerLineageNode } from './registerNodes';
 import {
@@ -23,6 +24,7 @@ interface LineageGraphProps {
 const LineageGraph: React.FC<LineageGraphProps> = ({
     data, onNodeClick, onEdgeClick, onExpandNode,
 }) => {
+    const intl = useIntl();
     const containerRef = useRef<HTMLDivElement>(null);
     const graphRef = useRef<Graph | null>(null);
 
@@ -265,28 +267,28 @@ const LineageGraph: React.FC<LineageGraphProps> = ({
             <div className="lineage-legend">
                 <div className="legend-item">
                     <span className="legend-dot" style={{ background: '#4169E1' }} />
-                    <span>Current</span>
+                    <span>{intl.formatMessage({ id: 'lineage_current' })}</span>
                 </div>
                 <div className="legend-item">
                     <span className="legend-dot" style={{ background: '#16a34a' }} />
-                    <span>Upstream</span>
+                    <span>{intl.formatMessage({ id: 'lineage_upstream' })}</span>
                 </div>
                 <div className="legend-item">
                     <span className="legend-dot" style={{ background: '#ea580c' }} />
-                    <span>Downstream</span>
+                    <span>{intl.formatMessage({ id: 'lineage_downstream' })}</span>
                 </div>
             </div>
 
             <div className="lineage-zoom-controls">
-                <Tooltip title="Zoom In" placement="top">
+                <Tooltip title={intl.formatMessage({ id: 'lineage_zoom_in' })} placement="top">
                     <Button icon={<ZoomInOutlined />} onClick={() => handleZoom(1.25)} />
                 </Tooltip>
                 <span className="zoom-divider" />
-                <Tooltip title="Zoom Out" placement="top">
+                <Tooltip title={intl.formatMessage({ id: 'lineage_zoom_out' })} placement="top">
                     <Button icon={<ZoomOutOutlined />} onClick={() => handleZoom(0.8)} />
                 </Tooltip>
                 <span className="zoom-divider" />
-                <Tooltip title="Fit View" placement="top">
+                <Tooltip title={intl.formatMessage({ id: 'lineage_fit_view' })} placement="top">
                     <Button icon={<CompressOutlined />} onClick={handleFitView} />
                 </Tooltip>
             </div>
