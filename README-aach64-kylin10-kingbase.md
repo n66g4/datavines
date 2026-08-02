@@ -154,6 +154,24 @@ cd /opt/datavines
 
 列分隔符建议使用 SOH（`\u0001`），避免字段内逗号干扰。
 
+### 4.1 统计报表与下级部门整改清单
+
+菜单：**统计报表**（`/main/opsReport`）
+
+1. 新建报表定义：填写下级部门数据源 ID 列表（JSON）与五表映射 `config_json`  
+2. 点击「生成」选统计日 → 产出总台账 Excel + 下级部门整改清单 zip  
+3. 可选填写 Cron（如 `0 30 2 * * ?`）自动按 T-1 生成  
+
+口径：报送量/最新时间实时查库（`entrytime`/`update_time`）；问题量来自作业失败结果；整改样例来自错误 CSV。
+
+元库需执行补丁（已有环境）：
+
+```sql
+-- scripts/sql/patch-ops-report-mysql.sql
+```
+
+产物目录默认：`/data/datavines/ops-reports/{workspaceId}/{runId}/`
+
 ---
 
 ## 5. 验证清单
