@@ -19,6 +19,7 @@ package io.datavines.server.repository.service;
 import com.baomidou.mybatisplus.extension.service.IService;
 
 import io.datavines.server.api.dto.bo.catalog.tag.TagCreate;
+import io.datavines.server.api.dto.bo.catalog.tag.TagUpdate;
 import io.datavines.server.api.dto.vo.catalog.CatalogTagVO;
 import io.datavines.server.repository.entity.catalog.CatalogTag;
 
@@ -28,9 +29,13 @@ public interface CatalogTagService extends IService<CatalogTag> {
 
     long create(TagCreate tagCreate);
 
+    boolean update(TagUpdate tagUpdate);
+
     boolean delete(String uuid);
 
     List<CatalogTag> listByCategoryUUID(String categoryUUID);
+
+    List<CatalogTagVO> listVOByCategoryUUID(String categoryUUID);
 
     List<CatalogTag> listByEntityUUID(String entityUUID);
 
@@ -39,5 +44,4 @@ public interface CatalogTagService extends IService<CatalogTag> {
     boolean deleteEntityTagRel(String entityUUID, String tagUUID);
 
     List<CatalogTagVO> listByWorkSpaceId(Long workSpaceId);
-
 }

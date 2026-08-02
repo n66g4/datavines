@@ -19,11 +19,14 @@ package io.datavines.server.api.controller;
 import io.datavines.core.aop.RefreshToken;
 import io.datavines.core.constant.DataVinesConstants;
 import io.datavines.server.api.dto.bo.catalog.tag.TagCategoryCreate;
+import io.datavines.server.api.dto.bo.catalog.tag.TagCategoryUpdate;
 import io.datavines.server.api.dto.bo.catalog.tag.TagCreate;
+import io.datavines.server.api.dto.bo.catalog.tag.TagUpdate;
 import io.datavines.server.api.dto.vo.catalog.CatalogTagVO;
 import io.datavines.server.repository.entity.catalog.CatalogTag;
 import io.datavines.server.repository.entity.catalog.CatalogTagCategory;
-import io.datavines.server.repository.service.*;
+import io.datavines.server.repository.service.CatalogTagCategoryService;
+import io.datavines.server.repository.service.CatalogTagService;
 import io.swagger.annotations.Api;
 import io.swagger.annotations.ApiOperation;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -50,6 +53,12 @@ public class CatalogTagController {
         return tagCategoryService.create(categoryCreate);
     }
 
+    @ApiOperation(value = "update tag category", response = boolean.class)
+    @PutMapping(value = "/category", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public Object updateTagCategory(@Valid @RequestBody TagCategoryUpdate categoryUpdate) {
+        return tagCategoryService.update(categoryUpdate);
+    }
+
     @ApiOperation(value = "get tag category list", response = CatalogTagCategory.class, responseContainer = "list")
     @GetMapping(value = "/category/list/{workspaceId}")
     public Object listCategoryByWorkSpaceId(@PathVariable Long workspaceId) {
@@ -68,16 +77,22 @@ public class CatalogTagController {
         return tagService.create(tagCreate);
     }
 
+    @ApiOperation(value = "update tag", response = boolean.class)
+    @PutMapping(consumes = MediaType.APPLICATION_JSON_VALUE)
+    public Object updateTag(@Valid @RequestBody TagUpdate tagUpdate) {
+        return tagService.update(tagUpdate);
+    }
+
     @ApiOperation(value = "get tag list by workspace id", response = CatalogTagVO.class, responseContainer = "list")
     @GetMapping(value = "/list-in-workspace/{workspaceId}")
     public Object listTagByWorkSpaceId(@PathVariable Long workspaceId) {
         return tagService.listByWorkSpaceId(workspaceId);
     }
 
-    @ApiOperation(value = "get tag list by category uuid", response = CatalogTag.class, responseContainer = "list")
+    @ApiOperation(value = "get tag list by category uuid", response = CatalogTagVO.class, responseContainer = "list")
     @GetMapping(value = "/list-in-category/{categoryUUID}")
     public Object listTagByCategoryUUID(@PathVariable String categoryUUID) {
-        return tagService.listByCategoryUUID(categoryUUID);
+        return tagService.listVOByCategoryUUID(categoryUUID);
     }
 
     @ApiOperation(value = "get tag list by entity uuid", response = CatalogTag.class, responseContainer = "list")
@@ -86,7 +101,7 @@ public class CatalogTagController {
         return tagService.listByEntityUUID(entityUUID);
     }
 
-    @ApiOperation(value = "delete category", response = boolean.class)
+    @ApiOperation(value = "delete tag", response = boolean.class)
     @DeleteMapping(value = "/{uuid}")
     public Object deleteTag(@PathVariable String uuid) {
         return tagService.delete(uuid);

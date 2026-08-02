@@ -28,6 +28,11 @@ import java.util.List;
 @Mapper
 public interface CatalogTagMapper extends BaseMapper<CatalogTag>  {
 
-    @Select("SELECT name, uuid from dv_catalog_tag WHERE category_uuid in (select category_uuid from dv_catalog_tag_category where workspace_id = #{workspaceId})")
+    @Select("SELECT name, uuid from dv_catalog_tag WHERE category_uuid in (select uuid from dv_catalog_tag_category where workspace_id = #{workspaceId})")
     List<CatalogTagVO> listByWorkSpaceId(Long workspaceId);
+
+    @Select("SELECT t.name AS name, t.uuid AS uuid, " +
+            "(SELECT COUNT(1) FROM dv_catalog_entity_tag_rel r WHERE r.tag_uuid = t.uuid) AS entityCount " +
+            "FROM dv_catalog_tag t WHERE t.category_uuid = #{categoryUUID}")
+    List<CatalogTagVO> listByCategoryUUIDWithCount(String categoryUUID);
 }

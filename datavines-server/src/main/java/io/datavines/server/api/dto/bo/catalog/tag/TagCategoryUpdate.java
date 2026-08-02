@@ -14,22 +14,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.datavines.server.repository.service;
+package io.datavines.server.api.dto.bo.catalog.tag;
 
-import com.baomidou.mybatisplus.extension.service.IService;
-import io.datavines.server.api.dto.bo.catalog.tag.TagCategoryCreate;
-import io.datavines.server.api.dto.bo.catalog.tag.TagCategoryUpdate;
-import io.datavines.server.repository.entity.catalog.CatalogTagCategory;
+import lombok.Data;
 
-import java.util.List;
+import javax.validation.constraints.NotBlank;
+import javax.validation.constraints.NotNull;
 
-public interface CatalogTagCategoryService extends IService<CatalogTagCategory> {
+@Data
+@NotNull(message = "TagCategory Update cannot be null")
+public class TagCategoryUpdate {
 
-    long create(TagCategoryCreate categoryCreate);
+    @NotBlank(message = "TagCategory uuid cannot be empty")
+    private String uuid;
 
-    boolean update(TagCategoryUpdate categoryUpdate);
-
-    boolean delete(String uuid);
-
-    List<CatalogTagCategory> listByWorkSpaceId(Long workSpaceId);
+    @NotBlank(message = "TagCategory name cannot be empty")
+    private String name;
 }

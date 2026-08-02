@@ -26,4 +26,7 @@ public class CatalogTagVO implements Serializable {
     private String name;
 
     private String uuid;
+
+    /** Number of catalog entities linked to this tag. */
+    private Long entityCount;
 }
